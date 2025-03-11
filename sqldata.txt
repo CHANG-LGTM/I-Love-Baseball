@@ -1,0 +1,43 @@
+INSERT INTO product (name, description, price, stock, category, image)
+VALUES 
+-- 🏏 야구배트 (Bats) - 15개
+('프리미엄 야구배트', '강력한 타격을 위한 최고급 배트', 180000, 10, 'bats', 'https://example.com/images/bat1.jpg'),
+('경량 야구배트', '가벼운 무게로 빠른 스윙 가능', 120000, 12, 'bats', 'https://example.com/images/bat2.jpg'),
+('파워 스윙 배트', '강한 힘 전달을 위한 디자인', 150000, 8, 'bats', 'https://example.com/images/bat3.jpg'),
+('프로페셔널 배트', '프로 선수들이 사용하는 고급 배트', 200000, 5, 'bats', 'https://example.com/images/bat4.jpg'),
+('컴팩트 야구배트', '어린이와 초보자를 위한 최적화된 크기', 90000, 20, 'bats', 'https://example.com/images/bat5.jpg'),
+('스피드 야구배트', '빠른 스윙을 위한 경량 설계', 140000, 15, 'bats', 'https://example.com/images/bat6.jpg'),
+('우드 야구배트', '천연 원목으로 제작된 클래식 배트', 110000, 12, 'bats', 'https://example.com/images/bat7.jpg'),
+('풀카본 야구배트', '최첨단 카본 기술 적용', 250000, 4, 'bats', 'https://example.com/images/bat8.jpg'),
+('소프트볼 야구배트', '소프트볼 전용 배트', 130000, 9, 'bats', 'https://example.com/images/bat9.jpg'),
+('초고속 배트', '극강의 스피드를 위한 설계', 190000, 7, 'bats', 'https://example.com/images/bat10.jpg'),
+('강화 스틸 배트', '강한 내구성을 자랑하는 배트', 170000, 6, 'bats', 'https://example.com/images/bat11.jpg'),
+('다이아몬드 코팅 배트', '특수 코팅 처리로 뛰어난 내구성 제공', 210000, 5, 'bats', 'https://example.com/images/bat12.jpg'),
+('멀티 스윙 배트', '다양한 타격 스타일을 지원', 155000, 11, 'bats', 'https://example.com/images/bat13.jpg'),
+('유소년 야구배트', '유소년 선수들을 위한 최적화된 배트', 85000, 14, 'bats', 'https://example.com/images/bat14.jpg'),
+('특수 합금 배트', '내구성과 경량성을 동시에 제공', 230000, 3, 'bats', 'https://example.com/images/bat15.jpg'),
+
+-- 🧤 배팅장갑 (Batting Gloves) - 15개
+('배팅장갑 엘리트', '프리미엄 가죽 소재로 제작', 60000, 25, 'batting-gloves', 'https://example.com/images/glove1.jpg'),
+('배팅장갑 프로', '프로 선수용 미끄럼 방지 설계', 55000, 20, 'batting-gloves', 'https://example.com/images/glove2.jpg'),
+('배팅장갑 컴포트', '손에 꼭 맞는 편안한 착용감', 50000, 30, 'batting-gloves', 'https://example.com/images/glove3.jpg'),
+('배팅장갑 레더', '천연 가죽 사용으로 뛰어난 내구성', 70000, 18, 'batting-gloves', 'https://example.com/images/glove4.jpg'),
+('배팅장갑 프리미엄', '최고급 소재로 제작된 장갑', 75000, 10, 'batting-gloves', 'https://example.com/images/glove5.jpg'),
+('배팅장갑 익스트림', '강한 타격을 위한 견고한 구조', 80000, 12, 'batting-gloves', 'https://example.com/images/glove6.jpg'),
+('배팅장갑 플렉스', '유연한 움직임을 위한 최적 설계', 65000, 15, 'batting-gloves', 'https://example.com/images/glove7.jpg'),
+('배팅장갑 스피드', '빠른 반응을 위한 초경량 디자인', 52000, 22, 'batting-gloves', 'https://example.com/images/glove8.jpg'),
+('배팅장갑 쿨', '통기성이 뛰어난 여름용 장갑', 48000, 28, 'batting-gloves', 'https://example.com/images/glove9.jpg'),
+('배팅장갑 그립', '미끄러짐 방지 특수 소재 적용', 72000, 17, 'batting-gloves', 'https://example.com/images/glove10.jpg'),
+
+-- 🛡️ 보호장비 (Protection) - 15개
+('야구 헬멧 프로', '머리를 보호하는 프리미엄 헬멧', 90000, 10, 'protection', 'https://example.com/images/protection1.jpg'),
+('야구 보호대 강화', '강력한 충격 방지 기능 제공', 85000, 8, 'protection', 'https://example.com/images/protection2.jpg'),
+('야구 헬멧 익스트림', '완벽한 보호 성능을 자랑', 100000, 6, 'protection', 'https://example.com/images/protection3.jpg'),
+('야구 보호장비 풀세트', '완벽한 보호를 위한 세트', 250000, 5, 'protection', 'https://example.com/images/protection4.jpg'),
+
+-- 🧤 글러브 (Gloves) - 15개
+('글러브 프로페셔널', '최고급 가죽으로 제작된 프로용 글러브', 180000, 10, 'gloves', 'https://example.com/images/glove1.jpg'),
+('글러브 클래식', '클래식한 디자인의 견고한 글러브', 140000, 15, 'gloves', 'https://example.com/images/glove2.jpg'),
+('글러브 프리미엄', '프리미엄 품질을 자랑하는 글러브', 160000, 8, 'gloves', 'https://example.com/images/glove3.jpg'),
+('글러브 스피드', '빠른 반응을 위한 경량 디자인', 130000, 20, 'gloves', 'https://example.com/images/glove4.jpg'),
+('글러브 초경량', '손에 부담 없는 초경량 설계', 110000, 12, 'gloves', 'https://example.com/images/glove5.jpg');
