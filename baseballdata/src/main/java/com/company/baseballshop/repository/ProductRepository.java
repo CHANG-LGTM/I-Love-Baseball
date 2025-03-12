@@ -1,5 +1,6 @@
 package com.company.baseballshop.repository;
 
+import com.company.baseballshop.model.DiscountedProduct;
 import com.company.baseballshop.model.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 

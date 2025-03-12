@@ -17,6 +17,7 @@ export default function Navbar() {
           </Link>
         </Typography>
         <Button color="inherit" component={Link} to="/login">로그인</Button>
+        <Button color="inherit" component={Link} to="/signup">회원가입</Button>
         <IconButton color="inherit" component={Link} to="/cart">
           <ShoppingCartIcon />
         </IconButton>

@@ -1,32 +1,33 @@
 import { useEffect, useState } from "react";
-import { Container, Typography, Button, Box, Card, CardContent, CardMedia } from "@mui/material";
-import { Link } from "react-router-dom";
+import {
+  Container,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  CardMedia,
+  Button,
+  IconButton,
+} from "@mui/material";
+import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
+import FavoriteIcon from "@mui/icons-material/Favorite";
 import axios from "axios";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-import { Product } from "../types";
-
-interface DiscountedProduct {
-  id: number;
-  name: string;
-  description: string;
-  originalPrice: number;
-  discountPercent: number;
-  category: string;
-  imageUrl: string;
-}
+import { DiscountedProduct } from "../types";
 
 export default function MainPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<DiscountedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cart, setCart] = useState<number[]>([]);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:8092/api/products");
+        const res = await axios.get("http://localhost:8092/api/products/discounted-products");
         console.log("API 데이터:", res.data);
         setProducts(res.data);
         setError(null);
@@ -39,6 +40,19 @@ export default function MainPage() {
     };
     fetchProducts();
   }, []);
+
+  const toggleCart = (productId: number) => {
+    if (cart.includes(productId)) {
+      setCart(cart.filter((id) => id !== productId));
+    } else {
+      setCart([...cart, productId]);
+      alert(`${productId}번 상품이 장바구니에 추가되었습니다!`);
+    }
+  };
+
+  const handlePurchase = (productId: number) => {
+    alert(`${productId}번 상품 구매 페이지로 이동합니다!`);
+  };
 
   const sliderSettings = {
     dots: true,
@@ -56,46 +70,6 @@ export default function MainPage() {
     "https://cdn-pro-web-213-28.cdn-nhncommerce.com/yayongsa11_godomall_com/data/skin/front/designbook_thegrandR/img/banner/fde30ff57202cd01e4bebeed15a1d871_15876.jpg",
   ];
 
-  // Dummy discounted products data
-  const discountedProducts: DiscountedProduct[] = [
-    {
-      id: 1,
-      name: "야구화 아웃도어",
-      description: "야외 경기 전용으로 설계된 방수 야구화",
-      originalPrice: 135000,
-      discountPercent: 14,
-      category: "shoes",
-      imageUrl: "http://yayongsa.hgodo.com/data/goods/25/03/11/48446/48446_main_074.jpg",
-    },
-    {
-      id: 2,
-      name: "프리미엄 야구 배트",
-      description: "최신 합금 기술로 제작된 고성능 배트",
-      originalPrice: 250000,
-      discountPercent: 20,
-      category: "bats",
-      imageUrl: "https://example.com/images/bat23.jpg",
-    },
-    {
-      id: 3,
-      name: "프로 야구 장갑",
-      description: "가죽 소재의 고급 필더용 장갑",
-      originalPrice: 98000,
-      discountPercent: 25,
-      category: "gloves",
-      imageUrl: "https://example.com/images/glove8.jpg",
-    },
-    {
-      id: 4,
-      name: "보호대 세트",
-      description: "타자용 풀바디 보호 장비",
-      originalPrice: 175000,
-      discountPercent: 15,
-      category: "protection",
-      imageUrl: "https://example.com/images/protect12.jpg",
-    },
-  ];
-
   const calculateDiscountedPrice = (price: number, discount: number) => {
     return Math.round(price * (1 - discount / 100));
   };
@@ -107,7 +81,7 @@ export default function MainPage() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "calc(130vh - 64px)",
+        minHeight: "calc(110vh - 64px)",
         textAlign: "center",
       }}
     >
@@ -153,68 +127,156 @@ export default function MainPage() {
               justifyContent: "center",
             }}
           >
-            {discountedProducts.map((product) => (
+            {products.map((product) => (
               <Card
-              key={product.id}
-              sx={{
-                width: { xs: "100%", sm: "250px" }, // ✅ 박스 너비 줄임
-                height: "410px", // ✅ 박스 높이 고정
-                transition: "all 0.3s",
-                "&:hover": {
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                  transform: "translateY(-4px)",
-                },
-              }}
-            >
-              <CardMedia
-                component="img"
-                height="250" // ✅ 이미지 높이 줄임
-                image={product.imageUrl}
-                alt={product.name}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x200";
+                key={product.id}
+                sx={{
+                  width: { xs: "100%", sm: "250px" },
+                  height: "450px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  transition: "all 0.3s",
+                  "&:hover": {
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    transform: "translateY(-4px)",
+                  },
                 }}
-              />
-              <CardContent sx={{ padding: "12px" }}> {/* ✅ 내부 여백 줄임 */}
-                <Typography variant="h6" component="div" align="center">
-                  {product.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, textAlign: "center" }}>
-                  {product.description}
-                </Typography>
-                <Box
+              >
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={product.imageUrl}
+                  alt={product.name}
+                  sx={{ objectFit: "contain" }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://placehold.co/300x200";
+                  }}
+                />
+                <CardContent
                   sx={{
+                    padding: "12px",
+                    flexGrow: 1,
                     display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    gap: 1,
-                    mb: 1,
+                    flexDirection: "column",
+                    justifyContent: "space-between",
                   }}
                 >
-                  <Typography
-                    variant="body1"
-                    color="text.secondary"
-                    sx={{ textDecoration: "line-through" }}
-                  >
-                    {product.originalPrice.toLocaleString()}원
-                  </Typography>
-                  <Typography variant="body1" color="error">
-                    {product.discountPercent}% OFF
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Typography variant="h6" color="primary">
-                    {calculateDiscountedPrice(product.originalPrice, product.discountPercent).toLocaleString()}원
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
+                  <Box>
+                    <Typography
+                      variant="h6"
+                      component="div"
+                      align="center"
+                      sx={{
+                        fontSize: "16px",
+                        lineHeight: "1.2",
+                        minHeight: "40px",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {product.name}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 1,
+                        textAlign: "center",
+                        fontSize: "14px", // 설명 글자 크기 유지
+                        lineHeight: "1.3",
+                        minHeight: "40px",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {product.description}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 1,
+                      }}
+                    >
+                      <Typography
+                        variant="body1"
+                        color="text.secondary"
+                        sx={{ textDecoration: "line-through", fontSize: "14px" }}
+                      >
+                        {product.originalPrice.toLocaleString()}원
+                      </Typography>
+                      <Typography variant="body1" color="error" sx={{ fontSize: "14px" }}>
+                        {product.discountPercent}% OFF
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="h6" color="primary" sx={{ fontSize: "16px" }}>
+                        {calculateDiscountedPrice(
+                          product.originalPrice,
+                          product.discountPercent
+                        ).toLocaleString()}
+                        원
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="medium"
+                        sx={{
+                          fontSize: "20px",
+                          padding: "8px 20px",
+                          borderRadius: "8px",
+                        }}
+                        onClick={() => handlePurchase(product.id)}
+                      >
+                        구매하기
+                      </Button>
+                      {/* 하트 버튼 스타일 조정 */}
+                      <Box
+                        onClick={() => toggleCart(product.id)}
+                        sx={{
+                          cursor: "pointer",
+                          padding: 0,
+                          "&:focus": { outline: "none" }, // 포커스 링 제거
+                          "&:hover": { backgroundColor: "transparent" }, // 호버 배경 제거
+                        }}
+                      >
+                        {cart.includes(product.id) ? (
+                          <FavoriteIcon sx={{ color: "red", fontSize: "34px" }} />
+                        ) : (
+                          <FavoriteBorderIcon sx={{ color: "grey", fontSize: "34px" }} />
+                        )}
+                      </Box>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
             ))}
           </Box>
         </Box>

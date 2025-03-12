@@ -3,6 +3,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import Navbar from "./components/Navbar";
 import MainPage from "./pages/MainPage";
 import ProductCategory from "./pages/ProductCategory";
+import Signup from "./pages/Signup";
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<MainPage />} />
         <Route path="/:category" element={<ProductCategory />} />
+        <Route path="/signup" element={<Signup />} />
       </Routes>
     </Router>
   );
