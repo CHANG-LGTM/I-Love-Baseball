@@ -1,13 +1,22 @@
-// Navbar.tsx
-import { AppBar, Toolbar, Typography, Button, IconButton } from "@mui/material";
+import { AppBar, Toolbar, Typography, Button, IconButton, Box } from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import SportsBaseballIcon from "@mui/icons-material/SportsBaseball";
 import SportsMmaIcon from "@mui/icons-material/SportsMma";
 import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafety";
 import SportsHandballIcon from "@mui/icons-material/SportsHandball";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Navbar() {
+  const navigate = useNavigate();
+  const nickname = localStorage.getItem("nickname"); // 로그인한 사용자의 닉네임 가져오기
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("nickname");
+    alert("로그아웃 되었습니다.");
+    navigate("/login"); // 로그아웃 후 로그인 페이지로 이동
+  };
+
   return (
     <AppBar position="fixed" color="primary">
       <Toolbar>
@@ -16,8 +25,22 @@ export default function Navbar() {
             ⚾ 야구 용품점
           </Link>
         </Typography>
-        <Button color="inherit" component={Link} to="/login">로그인</Button>
-        <Button color="inherit" component={Link} to="/signup">회원가입</Button>
+
+        {/* 로그인 상태 확인 후 UI 변경 */}
+        {nickname ? (
+          <>
+            <Typography variant="body1" sx={{ marginRight: 2 }}>
+              {nickname}님 환영합니다!
+            </Typography>
+            <Button color="inherit" onClick={handleLogout}>로그아웃</Button>
+          </>
+        ) : (
+          <>
+            <Button color="inherit" component={Link} to="/login">로그인</Button>
+            <Button color="inherit" component={Link} to="/register">회원가입</Button>
+          </>
+        )}
+
         <IconButton color="inherit" component={Link} to="/cart">
           <ShoppingCartIcon />
         </IconButton>

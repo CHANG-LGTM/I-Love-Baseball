@@ -4,6 +4,7 @@ export interface DiscountedProduct {
   description: string;
   originalPrice: number;
   discountPercent: number;
+  stock:number;
   category: string;
   imageUrl: string;
 }

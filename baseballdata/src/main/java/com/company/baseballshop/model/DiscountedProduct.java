@@ -10,27 +10,30 @@ import lombok.Setter;
 @Table(name = "discounted_products")
 public class DiscountedProduct {
 
-    // Getter와 Setter
     @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Long id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-        private String name;
-        private String description;
+    @Column(name = "name", nullable = false, length = 255)
+    private String name;
 
-        @Column(name = "original_price")
-        private double originalPrice;
+    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
+    private String description;
 
-        @Column(name = "discount_percent")
-        private int discountPercent;
+    @Column(name = "original_price", nullable = false)
+    private int originalPrice; // SQL에서 INT로 정의되었으므로 int로 변경
 
-        private String category;
+    @Column(name = "discount_percent", nullable = false)
+    private int discountPercent;
 
-        @Column(name = "image_url")
-        private String imageUrl;
+    @Column(name = "stock", nullable = false)
+    private int stock; // stock 필드 추가 및 int로 설정
 
-        // 기본 생성자
-        public DiscountedProduct() {}
+    @Column(name = "category", nullable = false, length = 50)
+    private String category;
+
+    @Column(name = "image_url", nullable = false, length = 255)
+    private String imageUrl;
+
 
 }
-
