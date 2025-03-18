@@ -33,9 +33,8 @@ export default function ProductCategory() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [pageLoading, setPageLoading] = useState<boolean>(true); // 페이지 로딩 상태
   const itemsPerPage = 16;
-
   const [cart, setCart] = useState<number[]>([]);
 
   useEffect(() => {
@@ -47,10 +46,15 @@ export default function ProductCategory() {
             Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
           },
         });
-        setIsLoggedIn(true);
+        // 인증 성공 시 nickname이 localStorage에 있는지 확인
+        const nickname = localStorage.getItem("nickname");
+        if (!nickname) {
+          throw new Error("Nickname not found in localStorage");
+        }
       } catch (err) {
         console.error("인증 상태 확인 실패:", err);
-        setIsLoggedIn(false);
+        // 인증 실패 시 localStorage에서 nickname 제거
+        localStorage.removeItem("nickname");
       }
     };
 
@@ -68,52 +72,64 @@ export default function ProductCategory() {
         setProducts(allProducts);
       } catch (err) {
         console.error("상품 목록 불러오기 오류:", err);
+      } finally {
+        setPageLoading(false); // 로딩 완료
       }
     };
 
-    checkAuthStatus();
-    fetchProducts();
+    // 인증 상태 확인이 완료된 후 상품 목록을 가져옴
+    checkAuthStatus().then(() => {
+      fetchProducts();
+    });
   }, [category]);
 
   const totalPages = Math.ceil(products.length / itemsPerPage);
   const displayedProducts = products.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const toggleCart = (productId: number, e: React.MouseEvent) => {
+  const toggleCart = async (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isLoggedIn === null) {
-      alert("인증 상태를 확인 중입니다. 잠시만 기다려 주세요.");
-      return;
-    }
-    if (!isLoggedIn) {
-      if (window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
+    const nickname = localStorage.getItem("nickname");
+    const isLoggedIn = !!nickname;
+    console.log("toggleCart - isLoggedIn:", isLoggedIn); // 디버깅 로그
+    if (pageLoading || !isLoggedIn) {
+      if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
       }
       return;
     }
-    if (cart.includes(productId)) {
-      setCart(cart.filter((id) => id !== productId));
-    } else {
-      setCart([...cart, productId]);
-      alert(`${productId}번 상품이 장바구니에 추가되었습니다!`);
+    try {
+      if (cart.includes(productId)) {
+        setCart(cart.filter((id) => id !== productId));
+        alert(`${productId}번 상품이 장바구니에서 제거되었습니다!`);
+      } else {
+        await axios.post(
+          "http://localhost:8092/api/cart/add",
+          { productId },
+          { withCredentials: true }
+        );
+        setCart([...cart, productId]);
+        alert(`${productId}번 상품이 장바구니에 추가되었습니다!`);
+      }
+    } catch (err) {
+      console.error("장바구니 처리 실패:", err.response?.data || err.message);
+      alert("장바구니 처리에 실패했습니다.");
     }
   };
 
   const handlePurchase = (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isLoggedIn === null) {
-      alert("인증 상태를 확인 중입니다. 잠시만 기다려 주세요.");
-      return;
-    }
-    if (!isLoggedIn) {
-      if (window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
+    const nickname = localStorage.getItem("nickname");
+    const isLoggedIn = !!nickname;
+    if (pageLoading || !isLoggedIn) {
+      if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
       }
       return;
     }
-    alert(`${productId}번 상품 구매 페이지로 이동합니다!`);
+    navigate(`/purchase/${productId}`); // MainPage와 동일하게 구매 페이지로 이동
   };
 
-  const calculateDiscountedPrice = (originalPrice: number, discountPercent: number) => {
+  const calculateDiscountedPrice = (originalPrice: number | undefined, discountPercent: number | undefined) => {
     if (!originalPrice || !discountPercent) return originalPrice || 0;
     return Math.round(originalPrice * (1 - discountPercent / 100));
   };
@@ -156,9 +172,9 @@ export default function ProductCategory() {
                       transform: "translateY(-4px)",
                     },
                     borderRadius: 4,
-                    cursor: "pointer", // 클릭 가능 표시
+                    cursor: "pointer",
                   }}
-                  onClick={() => navigate(`/product/${product.id}`)} // 상세 페이지로 이동
+                  onClick={() => navigate(`/product/${product.id}`)}
                 >
                   <CardMedia
                     component="img"

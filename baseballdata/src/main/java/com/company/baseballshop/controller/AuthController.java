@@ -18,14 +18,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true") // CORS 설정 추가
 public class AuthController {
-
+    // 기존 코드 유지 (변경 없음)
     @Autowired
     private UserRepository userRepository;
 
@@ -39,12 +41,10 @@ public class AuthController {
     public ResponseEntity<?> signup(@RequestBody AuthRequest authRequest) {
         log.info("회원가입 요청: {}", authRequest);
 
-        // 비밀번호가 null 또는 빈 값인지 확인
         if (authRequest.getPassword() == null || authRequest.getPassword().trim().isEmpty()) {
             return ResponseEntity.badRequest().body("비밀번호를 입력하세요.");
         }
 
-        // 비밀번호 해싱 후 로그 출력
         String encodedPassword = passwordEncoder.encode(authRequest.getPassword());
         log.info("해싱된 비밀번호: {}", encodedPassword);
 
@@ -57,7 +57,6 @@ public class AuthController {
 
     @GetMapping("/check-auth")
     public ResponseEntity<?> checkAuth(HttpServletRequest request) {
-        // ✅ 쿠키에서 JWT 토큰 추출
         String token = null;
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
@@ -70,15 +69,24 @@ public class AuthController {
             }
         }
 
-        // ✅ 토큰 검증 및 사용자 정보 반환
         if (token != null && jwtTokenProvider.validateToken(token)) {
             String email = jwtTokenProvider.getEmailFromToken(token);
             String role = jwtTokenProvider.getRoleFromToken(token);
-            log.info("인증된 사용자: email={}, role={}", email, role);
-            return ResponseEntity.ok(new AuthResponse(true, email, role));
+
+            Optional<User> foundUser = userRepository.findByEmail(email);
+            if (foundUser.isEmpty()) {
+                log.warn("사용자를 찾을 수 없음: email={}", email);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthResponse(false, null, null, null));
+            }
+
+            User user = foundUser.get();
+            String nickname = user.getNickname();
+
+            log.info("인증된 사용자: email={}, role={}, nickname={}", email, role, nickname);
+            return ResponseEntity.ok(new AuthResponse(true, email, role, nickname));
         } else {
             log.warn("토큰 검증 실패 또는 토큰 없음");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthResponse(false, null, null));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthResponse(false, null, null, null));
         }
     }
 
@@ -98,35 +106,49 @@ public class AuthController {
                     .body(Map.of("error", "이메일 또는 비밀번호가 올바르지 않습니다."));
         }
 
-        // JWT 토큰 생성
         String token = jwtTokenProvider.createToken(user.getEmail(), user.getRole());
 
-        // Secure HttpOnly Cookie 설정
         ResponseCookie cookie = ResponseCookie.from("jwt", token)
-                .httpOnly(true)  // JavaScript에서 접근 불가능 (XSS 방지)
-                .secure(false)   // 개발 환경에서는 false, 배포 시 true로 변경
-                .path("/")       // 모든 경로에서 쿠키 사용 가능
-                .sameSite("Strict") // CSRF 방지
-                .maxAge(Duration.ofHours(24)) // 24시간(1일) 동안 유지
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .sameSite("Strict")
+                .maxAge(Duration.ofHours(24))
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-        // 응답에는 닉네임만 반환 (JWT는 쿠키에 저장됨)
         return ResponseEntity.ok(Map.of("nickname", user.getNickname()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from("jwt", null)
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .sameSite("Strict")
+                .maxAge(0)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        log.info("로그아웃 성공: JWT 쿠키 삭제됨");
+
+        return ResponseEntity.ok(Map.of("message", "로그아웃 성공"));
     }
 }
 
-// AuthResponse 클래스 정의
 class AuthResponse {
     private boolean isAuthenticated;
     private String email;
     private String role;
+    private String nickname;
 
-    public AuthResponse(boolean isAuthenticated, String email, String role) {
+    public AuthResponse(boolean isAuthenticated, String email, String role, String nickname) {
         this.isAuthenticated = isAuthenticated;
         this.email = email;
         this.role = role;
+        this.nickname = nickname;
     }
 
     public boolean isAuthenticated() {
@@ -139,5 +161,9 @@ class AuthResponse {
 
     public String getRole() {
         return role;
+    }
+
+    public String getNickname() {
+        return nickname;
     }
 }

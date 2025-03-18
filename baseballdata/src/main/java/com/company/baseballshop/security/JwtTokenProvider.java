@@ -26,23 +26,25 @@ import java.util.List;
 public class JwtTokenProvider {
 
     @Value("${jwt.secret}")
-    private String secretKey;
+    private String secretKey; // JWT 서명을 위한 비밀 키
 
-    private final long EXPIRATION_TIME = 86400000; // 1일 (24시간, 밀리초 단위)
+    private final long EXPIRATION_TIME = 86400000; // 토큰 만료 시간: 1일 (밀리초 단위)
 
+    // 비밀 키를 디코딩하여 서명 키를 생성
     private SecretKey getSigningKey() {
         try {
             byte[] keyBytes = Decoders.BASE64.decode(secretKey);
             return Keys.hmacShaKeyFor(keyBytes);
         } catch (IllegalArgumentException e) {
-            log.error("SecretKey 디코딩 실패: {}", e.getMessage());
-            throw new IllegalStateException("잘못된 SecretKey 설정입니다. Base64 인코딩된 값을 확인하세요.", e);
+            log.error("비밀 키 디코딩 실패: {}", e.getMessage());
+            throw new IllegalStateException("잘못된 비밀 키 설정입니다. Base64 인코딩된 값을 확인하세요.", e);
         }
     }
 
+    // JWT 토큰 생성
     public String createToken(String email, Role role) {
         if (email == null || email.trim().isEmpty()) {
-            log.error("이메일이 null 또는 비어 있습니다: {}", email);
+            log.error("이메일이 null이거나 비어 있습니다: {}", email);
             throw new IllegalArgumentException("이메일은 필수입니다.");
         }
         if (role == null) {
@@ -50,19 +52,20 @@ public class JwtTokenProvider {
             throw new IllegalArgumentException("역할은 필수입니다.");
         }
 
-        Claims claims = (Claims) Jwts.claims().setSubject(email);
-        claims.put("role", role.name());
+        // Claims 객체를 빌더로 생성
         Date now = new Date();
         Date expiration = new Date(now.getTime() + EXPIRATION_TIME);
 
         return Jwts.builder()
-                .setClaims(claims)
-                .setIssuedAt(now)
-                .setExpiration(expiration)
-                .signWith(getSigningKey())
-                .compact();
+                .setSubject(email) // 이메일을 주체로 설정
+                .claim("role", role.name()) // 역할 정보를 추가
+                .setIssuedAt(now) // 발행 시간
+                .setExpiration(expiration) // 만료 시간
+                .signWith(getSigningKey()) // 서명
+                .compact(); // 토큰 생성
     }
 
+    // 요청에서 JWT 토큰을 추출
     public String resolveToken(HttpServletRequest request) {
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
@@ -74,10 +77,12 @@ public class JwtTokenProvider {
         return null;
     }
 
+    // 토큰에서 이메일 추출
     public String getEmailFromToken(String token) {
         return getClaims(token).getSubject();
     }
 
+    // 토큰 유효성 검증
     public boolean validateToken(String token) {
         try {
             getClaims(token);
@@ -88,6 +93,7 @@ public class JwtTokenProvider {
         }
     }
 
+    // 인증 객체 생성
     public Authentication getAuthentication(String token) {
         Claims claims = getClaims(token);
         String email = claims.getSubject();
@@ -96,6 +102,7 @@ public class JwtTokenProvider {
         return new UsernamePasswordAuthenticationToken(email, null, authorities);
     }
 
+    // 토큰에서 Claims 추출
     private Claims getClaims(String token) {
         if (token == null) {
             throw new IllegalArgumentException("토큰이 null입니다.");
@@ -107,6 +114,7 @@ public class JwtTokenProvider {
                 .getBody();
     }
 
+    // 토큰에서 역할 추출
     public String getRoleFromToken(String token) {
         return getClaims(token).get("role", String.class);
     }

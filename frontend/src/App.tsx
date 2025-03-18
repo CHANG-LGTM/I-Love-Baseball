@@ -1,13 +1,9 @@
 import CssBaseline from "@mui/material/CssBaseline";
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { BrowserRouter as Router } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import MainPage from "./pages/MainPage";
-import ProductCategory from "./pages/ProductCategory";
-import Register from "./pages/Register";
-import Login from "./pages/Login";
 import Footer from "./components/Footer";
 import { Box } from "@mui/material";
-import ProductDetail from "./pages/ProductDetail";
+import RoutesConfig from "./RoutesConfig"; // 라우터 설정을 별도 파일로 분리
 
 export default function App() {
   return (
@@ -22,13 +18,7 @@ export default function App() {
         <CssBaseline />
         <Navbar />
         <Box sx={{ flex: 1, pb: "80px" /* Footer 높이만큼 하단 여백 추가 */ }}>
-          <Routes>
-            <Route path="/" element={<MainPage />} />
-            <Route path="/:category" element={<ProductCategory />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/product/:id" element={<ProductDetail />} /> {/* 상세 페이지 경로 추가 */}
-          </Routes>
+          <RoutesConfig /> {/* 라우트 설정 컴포넌트 */}
         </Box>
         <Footer />
       </Box>

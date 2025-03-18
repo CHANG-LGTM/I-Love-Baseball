@@ -34,41 +34,12 @@ export default function MainPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cart, setCart] = useState<number[]>([]);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null); // 사용자 이메일 상태 추가
   const [filterCategory, setFilterCategory] = useState<string>("전체");
+  const [pageLoading, setPageLoading] = useState<boolean>(true); // 페이지 로딩 상태
   const navigate = useNavigate();
 
-  const categoryMapping: { [key: string]: string } = {
-    전체: "all",
-    야구배트: "bats",
-    배팅장갑: "batting-gloves",
-    보호장비: "protection",
-    글러브: "gloves",
-    야구화: "shoes",
-  };
-
+  // 페이지 로드 시 상품 데이터 가져오기
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const response = await axios.get("http://localhost:8092/api/auth/check-auth", {
-          withCredentials: true,
-        });
-        console.log("인증 상태 확인 응답:", response.data); // 디버깅 로그
-        if (response.data.isAuthenticated) {
-          setIsLoggedIn(true);
-          setUserEmail(response.data.email); // 사용자 이메일 저장
-        } else {
-          setIsLoggedIn(false);
-          setUserEmail(null);
-        }
-      } catch (err) {
-        console.error("인증 상태 확인 실패:", err.response?.data || err.message);
-        setIsLoggedIn(false);
-        setUserEmail(null);
-      }
-    };
-
     const fetchProducts = async () => {
       try {
         setLoading(true);
@@ -90,36 +61,45 @@ export default function MainPage() {
         }
       } catch (err) {
         console.error("상품 목록 불러오기 오류:", err.response?.data || err.message);
-        setError("상품을 불러오는데 실패했습니다.");
+        setError("상품을 불러오는데 실패했습니다. 서버를 확인해주세요.");
+        setProducts([]);
       } finally {
         setLoading(false);
+        setPageLoading(false); // 로딩 완료
       }
     };
-
-    const initialize = async () => {
-      // URL에서 토큰 제거
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has("token")) {
-        console.warn("URL에 토큰이 포함되어 있습니다. 제거합니다:", urlParams.get("token"));
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-
-      // 인증 상태 확인 후 상품 데이터 가져오기
-      await checkAuthStatus();
-      await fetchProducts();
-    };
-
-    initialize();
+    fetchProducts();
   }, []);
+
+  const categoryMapping: { [key: string]: string } = {
+    전체: "all",
+    야구배트: "bats",
+    배팅장갑: "batting-gloves",
+    보호장비: "protection",
+    글러브: "gloves",
+    야구화: "shoes",
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post("http://localhost:8092/api/auth/logout", {}, { withCredentials: true });
+      localStorage.removeItem("token");
+      localStorage.removeItem("nickname");
+      alert("로그아웃되었습니다.");
+      navigate("/login");
+    } catch (err) {
+      console.error("로그아웃 실패:", err.response?.data || err.message);
+      alert("로그아웃에 실패했습니다.");
+    }
+  };
 
   const toggleCart = async (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isLoggedIn === null) {
-      alert("인증 상태를 확인 중입니다. 잠시만 기다려 주세요.");
-      return;
-    }
-    if (!isLoggedIn) {
-      if (window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
+    const nickname = localStorage.getItem("nickname");
+    const isLoggedIn = !!nickname;
+    console.log("toggleCart - isLoggedIn:", isLoggedIn); // 디버깅 로그
+    if (pageLoading || !isLoggedIn) {
+      if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
       }
       return;
@@ -144,12 +124,10 @@ export default function MainPage() {
 
   const handlePurchase = (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isLoggedIn === null) {
-      alert("인증 상태를 확인 중입니다. 잠시만 기다려 주세요.");
-      return;
-    }
-    if (!isLoggedIn) {
-      if (window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
+    const nickname = localStorage.getItem("nickname");
+    const isLoggedIn = !!nickname;
+    if (pageLoading || !isLoggedIn) {
+      if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
       }
       return;
@@ -182,6 +160,10 @@ export default function MainPage() {
     "https://cdn-pro-web-213-28.cdn-nhncommerce.com/yayongsa11_godomall_com/data/skin/front/designbook_thegrandR/img/banner/fde30ff57202cd01e4bebeed15a1d871_15876.jpg",
   ];
 
+  if (pageLoading) {
+    return <Typography align="center">페이지 로딩 중...</Typography>;
+  }
+
   return (
     <Box
       sx={{
@@ -191,22 +173,10 @@ export default function MainPage() {
         justifyContent: "center",
         minHeight: "calc(110vh - 64px)",
         textAlign: "center",
+        mt: 8,
       }}
     >
       <Container maxWidth="lg">
-        {/* 로그인 상태 표시 (디버깅 및 사용자 경험 개선) */}
-        {isLoggedIn === null ? (
-          <Typography>로그인 상태 확인 중...</Typography>
-        ) : isLoggedIn ? (
-          <Typography variant="h6" color="primary">
-            {userEmail}님, 환영합니다!
-          </Typography>
-        ) : (
-          <Typography variant="h6" color="textSecondary">
-            로그인하지 않았습니다. 로그인을 해주세요.
-          </Typography>
-        )}
-
         <Box sx={{ mt: 15, mb: 4 }}>
           <Slider {...sliderSettings}>
             {sliderImages.map((image, index) => (
