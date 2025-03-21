@@ -1,7 +1,7 @@
 -- 기존 테이블 삭제
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS discounted_products;
-
+DROP TABLE IF EXISTS  cart_items;
 -- 통합 테이블 생성
 CREATE TABLE products (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,              -- 고유 ID (자동 증가)
@@ -18,6 +18,14 @@ CREATE TABLE products (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- 수정일 (자동 업데이트)
 ) ENGINE=InnoDB;
 
+CREATE TABLE cart_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);
 -- 인덱스 추가 (조회 성능 최적화)
 CREATE INDEX idx_category ON products (category);
 CREATE INDEX idx_is_discounted ON products (is_discounted);

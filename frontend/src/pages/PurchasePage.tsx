@@ -80,7 +80,7 @@ const PurchasePage: React.FC = () => {
 
     // 다음 주소 API
     const daumScript = document.createElement("script");
-    daumScript.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    daumScript.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
     daumScript.async = true;
     daumScript.onload = () => {
       if (isMounted) {
@@ -164,11 +164,23 @@ const PurchasePage: React.FC = () => {
       return;
     }
 
-    if (!window.DaumPostcode) {
+    if (!window.daum?.Postcode) {
       setError("주소 검색 API를 찾을 수 없습니다. 페이지를 새로고침해 주세요.");
-      console.error("DaumPostcode is undefined");
+      console.error("daum.Postcode is undefined");
       return;
     }
+    
+    new window.daum.Postcode({
+      oncomplete: (data: any) => {
+        const fullAddress = data.address;
+        const extraAddress = data.bname ? ` (${data.bname})` : "";
+        setAddress({
+          mainAddress: `${fullAddress}${extraAddress}`,
+          detailAddress: address.detailAddress,
+        });
+      }
+    }).open();
+    
 
     new window.DaumPostcode({
       oncomplete: (data: any) => {

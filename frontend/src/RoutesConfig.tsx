@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import ProductDetail from "./pages/ProductDetail";
 import PurchasePage from "./pages/PurchasePage";
 import React from "react";
+import CartPage from "./pages/CartPage";
 
 const RoutesConfig = () => {
   return (
@@ -16,6 +17,7 @@ const RoutesConfig = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/product/:id" element={<ProductDetail />} />
       <Route path="/purchase/:id" element={<PurchasePage />} />
+      <Route path="/cart" element={<CartPage />} />
     </Routes>
   );
 };
