@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Container,
@@ -10,6 +10,12 @@ import {
   Button,
   Grid,
   Pagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
@@ -26,6 +32,12 @@ interface Product {
   discounted: boolean;
   originalPrice?: number | null;
   discountPercent?: number | null;
+  brand: string;
+}
+
+interface BrandCount {
+  brand: string;
+  count: number;
 }
 
 export default function ProductCategory() {
@@ -33,64 +45,156 @@ export default function ProductCategory() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageLoading, setPageLoading] = useState<boolean>(true); // 페이지 로딩 상태
+  const [pageLoading, setPageLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const itemsPerPage = 16;
   const [cart, setCart] = useState<number[]>([]);
+  const [sortOption, setSortOption] = useState<string>("all");
+  const [brandFilter, setBrandFilter] = useState<string>("all");
+  const [brands, setBrands] = useState<BrandCount[]>([{ brand: "all", count: 0 }]);
+
+  const fetchData = async () => {
+    setPageLoading(true);
+    setError(null);
+    setProducts([]); // 이전 데이터 초기화
+    setBrands([{ brand: "all", count: 0 }]); // 브랜드 목록 초기화
+
+    const token = localStorage.getItem("token") || "";
+
+    try {
+      const [brandsResponse, productsResponse] = await Promise.all([
+        axios.get(`http://localhost:8092/api/products/brands/${category}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        axios.get(`http://localhost:8092/api/products/category/${category}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ]);
+
+      const fetchedBrands: BrandCount[] = brandsResponse.data || [];
+      const updatedBrands =
+        fetchedBrands.length > 0
+          ? [{ brand: "all", count: productsResponse.data.length }, ...fetchedBrands]
+          : [{ brand: "all", count: 0 }];
+      setBrands(updatedBrands);
+
+      const responseProducts: Product[] = productsResponse.data.map((item: any) => ({
+        ...item,
+        image: item.image || "https://placehold.co/300x200",
+        brand: item.brand || "Unknown",
+      }));
+
+      setProducts(responseProducts);
+
+      if (responseProducts.length === 0) {
+        setError("해당 카테고리에 상품이 없습니다.");
+      }
+    } catch (err) {
+      console.error("데이터 불러오기 오류:", err);
+      setError("상품 목록을 불러오는 데 실패했습니다. 다시 시도해 주세요.");
+      setBrands([{ brand: "all", count: 0 }]);
+      setProducts([]);
+    } finally {
+      setPageLoading(false);
+    }
+  };
 
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
+        const token = localStorage.getItem("token") || "";
         await axios.get("http://localhost:8092/api/auth/check-auth", {
           withCredentials: true,
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+            Authorization: `Bearer ${token}`,
           },
         });
-        // 인증 성공 시 nickname이 localStorage에 있는지 확인
         const nickname = localStorage.getItem("nickname");
         if (!nickname) {
           throw new Error("Nickname not found in localStorage");
         }
       } catch (err) {
         console.error("인증 상태 확인 실패:", err);
-        // 인증 실패 시 localStorage에서 nickname 제거
         localStorage.removeItem("nickname");
       }
     };
 
-    const fetchProducts = async () => {
-      try {
-        const res = await axios.get(`http://localhost:8092/api/products/category/${category}`);
-        const responseProducts: Product[] = res.data.map((item: any) => ({
-          ...item,
-          image: item.image || "https://placehold.co/300x200",
-        }));
-
-        const allProducts = [...responseProducts]
-          .filter((item, index, self) => index === self.findIndex((t) => t.id === item.id))
-          .sort(() => 0.5 - Math.random());
-        setProducts(allProducts);
-      } catch (err) {
-        console.error("상품 목록 불러오기 오류:", err);
-      } finally {
-        setPageLoading(false); // 로딩 완료
-      }
-    };
-
-    // 인증 상태 확인이 완료된 후 상품 목록을 가져옴
-    checkAuthStatus().then(() => {
-      fetchProducts();
-    });
+    setBrandFilter("all");
+    setCurrentPage(1); // 카테고리 변경 시 페이지 초기화
+    checkAuthStatus().then(fetchData);
   }, [category]);
 
-  const totalPages = Math.ceil(products.length / itemsPerPage);
-  const displayedProducts = products.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  useEffect(() => {
+    if (brandFilter === "all") {
+      fetchData(); // "전체" 선택 시 모든 상품을 다시 불러옴
+    } else {
+      const fetchFilteredProducts = async () => {
+        setPageLoading(true);
+        setError(null);
+        setProducts([]); // 이전 데이터 초기화
+
+        const token = localStorage.getItem("token") || "";
+
+        try {
+          const productsResponse = await axios.get(
+            `http://localhost:8092/api/products/category/${category}?brand=${brandFilter}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          const responseProducts: Product[] = productsResponse.data.map((item: any) => ({
+            ...item,
+            image: item.image || "https://placehold.co/300x200",
+            brand: item.brand || "Unknown",
+          }));
+
+          setProducts(responseProducts);
+
+          if (responseProducts.length === 0) {
+            setError(`선택한 브랜드(${brandFilter})의 상품이 없습니다. 다른 브랜드를 선택해 주세요.`);
+          }
+        } catch (err) {
+          console.error("브랜드 필터링 상품 불러오기 오류:", err);
+          setError("상품 목록을 불러오는 데 실패했습니다. 다시 시도해 주세요.");
+          setProducts([]);
+        } finally {
+          setPageLoading(false);
+        }
+      };
+
+      fetchFilteredProducts();
+    }
+  }, [brandFilter, category]);
+
+  const sortedProducts = useMemo(() => {
+    const sorted = [...products];
+    switch (sortOption) {
+      case "priceHigh":
+        return sorted.sort((a, b) => b.price - a.price);
+      case "priceLow":
+        return sorted.sort((a, b) => a.price - b.price);
+      default:
+        return sorted;
+    }
+  }, [products, sortOption]);
+
+  const totalPages = Math.ceil(sortedProducts.length / itemsPerPage);
+  const displayedProducts = sortedProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const toggleCart = async (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
-    console.log("toggleCart - isLoggedIn:", isLoggedIn); // 디버깅 로그
     if (pageLoading || !isLoggedIn) {
       if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
@@ -126,7 +230,7 @@ export default function ProductCategory() {
       }
       return;
     }
-    navigate(`/purchase/${productId}`); // MainPage와 동일하게 구매 페이지로 이동
+    navigate(`/purchase/${productId}`);
   };
 
   const calculateDiscountedPrice = (originalPrice: number | undefined, discountPercent: number | undefined) => {
@@ -134,9 +238,16 @@ export default function ProductCategory() {
     return Math.round(originalPrice * (1 - discountPercent / 100));
   };
 
+  useEffect(() => {
+    setCurrentPage(1); // 정렬 옵션이나 브랜드 필터 변경 시 페이지 초기화
+  }, [sortOption, brandFilter]);
+
+  // 상품 개수에 따라 justifyContent 동적으로 설정
+  const gridJustifyContent = displayedProducts.length <= 3 ? "center" : "flex-start";
+
   return (
     <Container maxWidth="lg" sx={{ textAlign: "center", mt: 15 }}>
-      <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ textAlign: "center", mb: 6 }}>
+      <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ textAlign: "center", mb: 4 }}>
         {category === "bats"
           ? "야구배트"
           : category === "batting-gloves"
@@ -149,184 +260,261 @@ export default function ProductCategory() {
         목록
       </Typography>
 
-      <Grid container spacing={2} justifyContent="flex-start">
-        {displayedProducts.length > 0 ? (
-          displayedProducts.map((product) => {
-            const discounted = product.discounted || false;
-            const displayPrice = discounted
-              ? calculateDiscountedPrice(product.originalPrice, product.discountPercent)
-              : product.price;
+      {pageLoading && (
+        <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
 
-            return (
-              <Grid item xs={12} sm={6} md={3} key={product.id}>
-                <Card
-                  sx={{
-                    width: { xs: "100%", sm: "250px" },
-                    height: "450px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    transition: "all 0.3s",
-                    "&:hover": {
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      transform: "translateY(-4px)",
-                    },
-                    borderRadius: 4,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => navigate(`/product/${product.id}`)}
-                >
-                  <CardMedia
-                    component="img"
-                    height="200"
-                    image={product.image || "https://placehold.co/300x200"}
-                    alt={product.name}
-                    sx={{ objectFit: "contain" }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x200";
-                    }}
-                  />
-                  <CardContent
+      {!pageLoading && error && (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          {error}
+          {brandFilter !== "all" && (
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => {
+                setBrandFilter("all");
+                setError(null);
+                setPageLoading(true);
+              }}
+              sx={{ ml: 2 }}
+            >
+              브랜드 필터 초기화
+            </Button>
+          )}
+        </Alert>
+      )}
+
+      {!pageLoading && !error && (
+        <>
+          <Box sx={{ display: "flex", justifyContent: "space-between", mb: 4 }}>
+            <FormControl sx={{ minWidth: 150 }}>
+              <InputLabel>정렬 기준</InputLabel>
+              <Select
+                value={sortOption}
+                label="정렬 기준"
+                onChange={(e) => setSortOption(e.target.value as string)}
+              >
+                <MenuItem value="all">기본 정렬</MenuItem>
+                <MenuItem value="priceHigh">가격 높은 순</MenuItem>
+                <MenuItem value="priceLow">가격 낮은 순</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl sx={{ minWidth: 150 }}>
+              <InputLabel>브랜드</InputLabel>
+              <Select
+                value={brandFilter}
+                label="브랜드"
+                onChange={(e) => setBrandFilter(e.target.value as string)}
+              >
+                {brands.map((brandItem) => (
+                  <MenuItem key={brandItem.brand} value={brandItem.brand}>
+                    {brandItem.brand === "all" ? "전체" : brandItem.brand} ({brandItem.count})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          {displayedProducts.length > 0 ? (
+            <Grid container spacing={2} justifyContent={gridJustifyContent}>
+              {displayedProducts.map((product) => {
+                const discounted = product.discounted || false;
+                const displayPrice = discounted
+                  ? calculateDiscountedPrice(product.originalPrice, product.discountPercent)
+                  : product.price;
+
+                return (
+                  <Grid
+                    item
+                    xs={12}
+                    sm={6}
+                    md={3}
+                    key={product.id}
                     sx={{
-                      padding: "12px",
-                      flexGrow: 1,
                       display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      minWidth: "250px", // 최소 너비를 설정하여 카드 크기 유지
                     }}
                   >
-                    <Box>
-                      <Typography
-                        variant="h6"
-                        component="div"
-                        align="center"
+                    <Card
+                      sx={{
+                        width: "250px", // 고정된 너비
+                        height: "450px", // 고정된 높이
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        transition: "all 0.3s",
+                        "&:hover": {
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                          transform: "translateY(-4px)",
+                        },
+                        borderRadius: 4,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <CardMedia
+                        component="img"
+                        height="200"
+                        image={product.image || "https://placehold.co/300x200"}
+                        alt={product.name}
+                        sx={{ objectFit: "contain" }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x200";
+                        }}
+                        onClick={() => navigate(`/product/${product.id}`)}
+                      />
+                      <CardContent
                         sx={{
-                          fontSize: "16px",
-                          lineHeight: "1.2",
-                          minHeight: "40px",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          padding: "12px",
+                          flexGrow: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
                         }}
                       >
-                        {product.name}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          mb: 1,
-                          textAlign: "center",
-                          fontSize: "14px",
-                          lineHeight: "1.3",
-                          minHeight: "40px",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {product.description}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      {discounted && (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            gap: 1,
-                            mb: 1,
-                          }}
-                        >
+                        <Box>
                           <Typography
-                            variant="body1"
-                            color="text.secondary"
-                            sx={{ textDecoration: "line-through", fontSize: "14px" }}
+                            variant="h6"
+                            component="div"
+                            align="center"
+                            sx={{
+                              fontSize: "16px",
+                              lineHeight: "1.2",
+                              minHeight: "40px",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
                           >
-                            {product.originalPrice?.toLocaleString()}원
+                            {product.name}
                           </Typography>
-                          <Typography variant="body1" color="error" sx={{ fontSize: "14px" }}>
-                            {product.discountPercent}% OFF
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              mb: 1,
+                              textAlign: "center",
+                              fontSize: "14px",
+                              lineHeight: "1.3",
+                              minHeight: "40px",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {product.description}
                           </Typography>
                         </Box>
-                      )}
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          mb: 1,
-                        }}
-                      >
-                        <Typography variant="h6" color="primary" sx={{ fontSize: "16px" }}>
-                          {displayPrice.toLocaleString()}원
-                        </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                      >
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          size="medium"
-                          sx={{
-                            fontSize: "20px",
-                            padding: "8px 20px",
-                            borderRadius: "8px",
-                          }}
-                          onClick={(e) => handlePurchase(product.id, e)}
-                        >
-                          구매하기
-                        </Button>
-                        <Box
-                          onClick={(e) => toggleCart(product.id, e)}
-                          sx={{
-                            cursor: "pointer",
-                            padding: 0,
-                            "&:focus": { outline: "none" },
-                            "&:hover": { backgroundColor: "transparent" },
-                          }}
-                        >
-                          {cart.includes(product.id) ? (
-                            <FavoriteIcon sx={{ color: "red", fontSize: "34px" }} />
+                        <Box>
+                          {discounted ? (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: 1,
+                                mb: 1,
+                                minHeight: "24px",
+                              }}
+                            >
+                              <Typography
+                                variant="body1"
+                                color="text.secondary"
+                                sx={{ textDecoration: "line-through", fontSize: "14px" }}
+                              >
+                                {product.originalPrice?.toLocaleString()}원
+                              </Typography>
+                              <Typography variant="body1" color="error" sx={{ fontSize: "14px" }}>
+                                {product.discountPercent}% OFF
+                              </Typography>
+                            </Box>
                           ) : (
-                            <FavoriteBorderIcon sx={{ color: "grey", fontSize: "34px" }} />
+                            <Box sx={{ minHeight: "24px", mb: 1 }} />
                           )}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              mb: 1,
+                              minHeight: "24px",
+                            }}
+                          >
+                            <Typography variant="h6" color="primary" sx={{ fontSize: "16px" }}>
+                              {displayPrice.toLocaleString()}원
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              gap: 2,
+                              minHeight: "48px",
+                            }}
+                          >
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              size="medium"
+                              sx={{
+                                fontSize: "20px",
+                                padding: "8px 20px",
+                                borderRadius: "8px",
+                              }}
+                              onClick={(e) => handlePurchase(product.id, e)}
+                            >
+                              구매하기
+                            </Button>
+                            <Box
+                              onClick={(e) => toggleCart(product.id, e)}
+                              sx={{
+                                cursor: "pointer",
+                                padding: 0,
+                                "&:focus": { outline: "none" },
+                                "&:hover": { backgroundColor: "transparent" },
+                              }}
+                            >
+                              {cart.includes(product.id) ? (
+                                <FavoriteIcon sx={{ color: "red", fontSize: "34px" }} />
+                              ) : (
+                                <FavoriteBorderIcon sx={{ color: "grey", fontSize: "34px" }} />
+                              )}
+                            </Box>
+                          </Box>
                         </Box>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })
-        ) : (
-          <Typography variant="h6" color="textSecondary" sx={{ mt: 5 }}>
-            해당 카테고리에 상품이 없습니다.
-          </Typography>
-        )}
-      </Grid>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          ) : (
+            <Typography variant="h6" color="textSecondary" sx={{ mt: 5 }}>
+              해당 카테고리에 상품이 없습니다.
+            </Typography>
+          )}
 
-      {totalPages > 1 && (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
-          <Pagination
-            count={totalPages}
-            page={currentPage}
-            onChange={(_, value) => setCurrentPage(value)}
-            color="primary"
-            size="large"
-          />
-        </Box>
+          {totalPages > 1 && displayedProducts.length > 0 && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={(_, value) => setCurrentPage(value)}
+                color="primary"
+                size="large"
+              />
+            </Box>
+          )}
+        </>
       )}
     </Container>
   );

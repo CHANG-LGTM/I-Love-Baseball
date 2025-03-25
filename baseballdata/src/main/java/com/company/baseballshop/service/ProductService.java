@@ -13,150 +13,98 @@ import java.util.Optional;
 @Service
 public class ProductService {
 
-    private final ProductRepository productRepository;
-
     @Autowired
-    public ProductService(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
+    private ProductRepository productRepository;
 
-    /**
-     * 모든 상품 조회
-     * @return List<Product> - 모든 상품 목록
-     */
     public List<Product> getAllProducts() {
-        log.info("모든 상품 조회 요청");
-        List<Product> products = productRepository.findAll();
-        log.info("조회된 상품 수: {}", products.size());
-        return products.stream()
-                .map(this::calculateDiscountedPrice)
-                .toList();
+        log.info("모든 상품 조회");
+        return productRepository.findAll();
     }
 
-    /**
-     * 특정 ID의 상품 조회
-     * @param id - 상품 ID
-     * @return Product - 조회된 상품 또는 null
-     */
-    public Product getProductById(Long id) {
-        log.info("상품 상세 조회 요청: {}", id);
-        Optional<Product> product = productRepository.findById(id);
-        if (product.isEmpty()) {
-            log.warn("상품을 찾을 수 없습니다: {}", id);
-            return null;
-        }
-        Product result = calculateDiscountedPrice(product.get());
-        log.info("조회된 상품: {}", result.getName());
-        return result;
-    }
-
-    /**
-     * 카테고리별 상품 조회
-     * @param category - 상품 카테고리
-     * @return List<Product> - 카테고리별 상품 목록
-     */
     public List<Product> getProductsByCategory(String category) {
-        log.info("카테고리별 상품 조회 요청: {}", category);
+        log.info("카테고리별 상품 조회: category={}", category);
         List<Product> products = productRepository.findByCategory(category);
-        if (products.isEmpty()) {
-            log.warn("해당 카테고리에 상품이 없습니다: {}", category);
-        } else {
-            log.info("조회된 상품 수: {}", products.size());
-        }
-        return products.stream()
-                .map(this::calculateDiscountedPrice)
-                .toList();
+        log.info("조회된 상품 수: {}", products.size());
+        applyDiscounts(products);
+        return products;
     }
 
-    /**
-     * 할인 상품 조회
-     * @return List<Product> - 할인 상품 목록
-     */
+    public List<Product> getProductsByCategoryAndBrand(String category, String brand) {
+        log.info("카테고리와 브랜드로 상품 조회: category={}, brand={}", category, brand);
+        List<Product> products = productRepository.findByCategoryAndBrand(category, brand);
+        log.info("조회된 상품 수: {}", products.size());
+        applyDiscounts(products);
+        return products;
+    }
+
     public List<Product> getDiscountedProducts() {
-        log.info("할인 상품 조회 요청");
-        List<Product> discountedProducts = productRepository.findByIsDiscountedTrue();
-        if (discountedProducts.isEmpty()) {
-            log.warn("할인 상품이 없습니다.");
-        } else {
-            log.info("조회된 할인 상품 수: {}", discountedProducts.size());
-        }
-        return discountedProducts.stream()
-                .map(this::calculateDiscountedPrice)
-                .toList();
+        log.info("할인 상품 조회");
+        List<Product> products = productRepository.findByIsDiscountedTrue();
+        applyDiscounts(products);
+        return products;
     }
 
-    /**
-     * 새로운 상품 생성
-     * @param product - 생성할 상품 객체
-     * @return Product - 저장된 상품
-     */
+    public Product getProductById(Long id) {
+        log.info("상품 상세 조회: id={}", id);
+        Optional<Product> product = productRepository.findById(id);
+        if (product.isPresent()) {
+            Product p = product.get();
+            applyDiscount(p);
+            return p;
+        }
+        return null;
+    }
+
     public Product createProduct(Product product) {
-        log.info("새 상품 추가 요청: {}", product.getName());
-        if (product.getName() == null || product.getName().trim().isEmpty()) {
-            log.error("상품 이름이 비어 있습니다.");
+        log.info("새 상품 생성: name={}", product.getName());
+        if (product.getName() == null || product.getName().isEmpty()) {
             throw new IllegalArgumentException("상품 이름은 필수입니다.");
         }
-        Product savedProduct = productRepository.save(calculateDiscountedPrice(product));
-        log.info("상품 추가 성공: {}", savedProduct.getName());
-        return savedProduct;
+        return productRepository.save(product);
     }
 
-    /**
-     * 상품 수정
-     * @param id - 수정할 상품 ID
-     * @param newProduct - 수정할 상품 데이터
-     * @return Product - 수정된 상품 또는 null
-     */
-    public Product updateProduct(Long id, Product newProduct) {
-        log.info("상품 수정 요청: {}", id);
-        Optional<Product> existingProduct = productRepository.findById(id);
-        if (existingProduct.isEmpty()) {
-            log.warn("수정할 상품을 찾을 수 없습니다: {}", id);
-            return null;
+    public Product updateProduct(Long id, Product productDetails) {
+        log.info("상품 수정: id={}", id);
+        Optional<Product> productOptional = productRepository.findById(id);
+        if (productOptional.isPresent()) {
+            Product product = productOptional.get();
+            product.setName(productDetails.getName());
+            product.setDescription(productDetails.getDescription());
+            product.setPrice(productDetails.getPrice());
+            product.setOriginalPrice(productDetails.getOriginalPrice());
+            product.setDiscountPercent(productDetails.getDiscountPercent());
+            product.setStock(productDetails.getStock());
+            product.setCategory(productDetails.getCategory());
+            product.setImage(productDetails.getImage());
+            product.setDiscounted(productDetails.isDiscounted());
+            product.setBrand(productDetails.getBrand());
+            return productRepository.save(product);
         }
-
-        Product product = existingProduct.get();
-        product.setName(newProduct.getName());
-        product.setDescription(newProduct.getDescription());
-        product.setPrice(newProduct.getPrice());
-        product.setOriginalPrice(newProduct.getOriginalPrice());
-        product.setDiscountPercent(newProduct.getDiscountPercent());
-        product.setStock(newProduct.getStock());
-        product.setCategory(newProduct.getCategory());
-        product.setImage(newProduct.getImage());
-        product.setDiscounted(newProduct.isDiscounted());
-
-        Product updatedProduct = productRepository.save(calculateDiscountedPrice(product));
-        log.info("상품 수정 성공: {}", updatedProduct.getName());
-        return updatedProduct;
+        return null;
     }
 
-    /**
-     * 상품 삭제
-     * @param id - 삭제할 상품 ID
-     */
     public void deleteProduct(Long id) {
-        log.info("상품 삭제 요청: {}", id);
-        Optional<Product> product = productRepository.findById(id);
-        if (product.isEmpty()) {
-            log.warn("삭제할 상품을 찾을 수 없습니다: {}", id);
-            return;
-        }
+        log.info("상품 삭제: id={}", id);
         productRepository.deleteById(id);
-        log.info("상품 삭제 성공: {}", id);
     }
 
-    /**
-     * 할인 가격 계산
-     * @param product - 계산할 상품
-     * @return Product - 할인 적용된 상품
-     */
-    private Product calculateDiscountedPrice(Product product) {
+    public List<String> getDistinctBrands() {
+        log.info("모든 브랜드 조회");
+        return productRepository.findDistinctBrands();
+    }
+
+    private void applyDiscounts(List<Product> products) {
+        for (Product product : products) {
+            applyDiscount(product);
+        }
+    }
+
+    private void applyDiscount(Product product) {
         if (product.isDiscounted() && product.getOriginalPrice() != null && product.getDiscountPercent() != null) {
             int discountedPrice = (int) (product.getOriginalPrice() * (1 - product.getDiscountPercent() / 100.0));
+            log.debug("할인 적용: 원래 가격={}, 할인율={}, 적용 가격={}",
+                    product.getOriginalPrice(), product.getDiscountPercent(), discountedPrice);
             product.setPrice(discountedPrice);
-            log.debug("할인 적용: 원래 가격={}, 할인율={}, 적용 가격={}", product.getOriginalPrice(), product.getDiscountPercent(), discountedPrice);
         }
-        return product;
     }
 }

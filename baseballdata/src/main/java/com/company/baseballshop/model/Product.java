@@ -6,7 +6,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.sql.Timestamp;
 
-
 @Entity
 @Table(name = "products")
 public class Product {
@@ -50,6 +49,9 @@ public class Product {
     @UpdateTimestamp
     private Timestamp updatedAt;
 
+    @Column(length = 50, columnDefinition = "VARCHAR(50) DEFAULT 'Unknown'") // brand 필드 추가
+    private String brand;
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -75,4 +77,8 @@ public class Product {
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    // brand 필드에 대한 Getter와 Setter 추가
+    public String getBrand() { return brand; }
+    public void setBrand(String brand) { this.brand = brand; }
 }
