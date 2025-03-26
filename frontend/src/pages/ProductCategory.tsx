@@ -35,6 +35,15 @@ interface Product {
   brand: string;
 }
 
+interface CartItem {
+  id: number;
+  productId: number;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+}
+
 interface BrandCount {
   brand: string;
   count: number;
@@ -203,15 +212,37 @@ export default function ProductCategory() {
     }
     try {
       if (cart.includes(productId)) {
-        setCart(cart.filter((id) => id !== productId));
-        alert(`${productId}번 상품이 장바구니에서 제거되었습니다!`);
+        // 장바구니에서 제거
+        const cartItem = cartItems.find((item) => item.productId === productId);
+        if (cartItem) {
+          await axios.delete(`http://localhost:8092/api/cart/remove/${cartItem.id}`, {
+            withCredentials: true,
+          });
+          setCart(cart.filter((id) => id !== productId));
+          setCartItems(cartItems.filter((item) => item.productId !== productId));
+          alert(`${productId}번 상품이 장바구니에서 제거되었습니다!`);
+        }
       } else {
+        // 장바구니에 추가
         await axios.post(
           "http://localhost:8092/api/cart/add",
           { productId },
           { withCredentials: true }
         );
         setCart([...cart, productId]);
+        // 장바구니 데이터를 다시 가져와서 상태 업데이트
+        const res = await axios.get("http://localhost:8092/api/cart", {
+          withCredentials: true,
+        });
+        const formattedItems: CartItem[] = res.data.map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.name || "상품명 없음",
+          price: item.price || 0,
+          image: item.image || "https://placehold.co/300x200",
+          quantity: item.quantity || 1,
+        }));
+        setCartItems(formattedItems);
         alert(`${productId}번 상품이 장바구니에 추가되었습니다!`);
       }
     } catch (err) {
@@ -220,7 +251,7 @@ export default function ProductCategory() {
     }
   };
 
-  const handlePurchase = (productId: number, e: React.MouseEvent) => {
+  const handlePurchase = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
@@ -230,7 +261,21 @@ export default function ProductCategory() {
       }
       return;
     }
-    navigate(`/purchase/${productId}`);
+
+    // 선택한 상품을 CartItem 형식으로 변환
+    const cartItem: CartItem = {
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      price: product.discounted
+        ? calculateDiscountedPrice(product.originalPrice, product.discountPercent)
+        : product.price,
+      image: product.image,
+      quantity: 1, // 기본 수량 1로 설정
+    };
+
+    // /checkout으로 이동하며 선택한 상품 정보를 state로 전달
+    navigate("/checkout", { state: { cartItems: [cartItem] } });
   };
 
   const calculateDiscountedPrice = (originalPrice: number | undefined, discountPercent: number | undefined) => {
@@ -244,6 +289,33 @@ export default function ProductCategory() {
 
   // 상품 개수에 따라 justifyContent 동적으로 설정
   const gridJustifyContent = displayedProducts.length <= 3 ? "center" : "flex-start";
+
+  // 장바구니 상태를 관리하기 위한 상태 추가
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  // 페이지 로드 시 장바구니 데이터 가져오기
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      try {
+        const res = await axios.get("http://localhost:8092/api/cart", {
+          withCredentials: true,
+        });
+        const formattedItems: CartItem[] = res.data.map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.name || "상품명 없음",
+          price: item.price || 0,
+          image: item.image || "https://placehold.co/300x200",
+          quantity: item.quantity || 1,
+        }));
+        setCartItems(formattedItems);
+        setCart(formattedItems.map((item) => item.productId));
+      } catch (err) {
+        console.error("장바구니 데이터 가져오기 실패:", err.response?.data || err.message);
+      }
+    };
+    fetchCartItems();
+  }, []);
 
   return (
     <Container maxWidth="lg" sx={{ textAlign: "center", mt: 15 }}>
@@ -337,13 +409,13 @@ export default function ProductCategory() {
                       display: "flex",
                       justifyContent: "center",
                       alignItems: "center",
-                      minWidth: "250px", // 최소 너비를 설정하여 카드 크기 유지
+                      minWidth: "250px",
                     }}
                   >
                     <Card
                       sx={{
-                        width: "250px", // 고정된 너비
-                        height: "450px", // 고정된 높이
+                        width: "250px",
+                        height: "450px",
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "space-between",
@@ -470,7 +542,7 @@ export default function ProductCategory() {
                                 padding: "8px 20px",
                                 borderRadius: "8px",
                               }}
-                              onClick={(e) => handlePurchase(product.id, e)}
+                              onClick={(e) => handlePurchase(product, e)}
                             >
                               구매하기
                             </Button>

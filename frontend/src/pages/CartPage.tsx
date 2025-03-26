@@ -22,7 +22,6 @@ import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
-// 인터페이스 정의는 그대로 유지
 interface CartItem {
   id: number;
   productId: number;
@@ -41,12 +40,11 @@ interface RecommendedProduct {
   image: string;
 }
 
-// 가격 표시를 위한 별도 컴포넌트
-const PriceDisplay: React.FC<{ price: number; originalPrice?: number; discountRate?: number }> = ({
-  price,
-  originalPrice,
-  discountRate,
-}) => (
+const PriceDisplay: React.FC<{
+  price: number;
+  originalPrice?: number;
+  discountRate?: number;
+}> = ({ price, originalPrice, discountRate }) => (
   <Box sx={{ display: "flex", justifyContent: "center", gap: 1, alignItems: "center" }}>
     {originalPrice && originalPrice > price && (
       <Typography
@@ -73,10 +71,10 @@ const PriceDisplay: React.FC<{ price: number; originalPrice?: number; discountRa
   </Box>
 );
 
-export default function CartPage() {
+const CartPage: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -96,7 +94,7 @@ export default function CartPage() {
       });
       console.log("Cart API response:", res.status, res.data);
       if (Array.isArray(res.data)) {
-        const formattedItems = res.data.map((item: any) => ({
+        const formattedItems: CartItem[] = res.data.map((item: any) => ({
           id: item.id,
           productId: item.productId,
           name: item.name || "상품명 없음",
@@ -119,7 +117,7 @@ export default function CartPage() {
       );
       console.log("Recommended products response:", recommendedRes.status, recommendedRes.data);
       if (Array.isArray(recommendedRes.data)) {
-        const randomRecommended = getRandomItems(recommendedRes.data, 9).map((item: any) => ({
+        const randomRecommended: RecommendedProduct[] = getRandomItems(recommendedRes.data, 9).map((item: any) => ({
           id: item.id,
           name: item.name || "상품명 없음",
           price: item.price || 0,
@@ -129,7 +127,7 @@ export default function CartPage() {
         }));
         setRecommendedProducts(randomRecommended);
       } else {
-        const defaultProducts = [
+        const defaultProducts: RecommendedProduct[] = [
           { id: 1, name: "야구 배트 1", price: 40000, originalPrice: 50000, image: "https://placehold.co/300x200" },
           { id: 2, name: "배팅 장갑 1", price: 24000, originalPrice: 30000, image: "https://placehold.co/300x200" },
           { id: 3, name: "보호 장비 1", price: 36000, originalPrice: 45000, image: "https://placehold.co/300x200" },
@@ -147,7 +145,7 @@ export default function CartPage() {
           }))
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Cart fetch error:", err.response?.status, err.response?.data || err.message);
       if (err.response?.status === 401) {
         setError("로그인이 필요합니다.");
@@ -173,7 +171,7 @@ export default function CartPage() {
         withCredentials: true,
       });
       setCartItems(cartItems.filter((item) => item.id !== cartItemId));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Cart item removal error:", err.response?.status, err.response?.data || err.message);
       if (err.response?.status === 401) {
         setError("로그인이 필요합니다.");
@@ -202,7 +200,7 @@ export default function CartPage() {
           item.id === cartItemId ? { ...item, quantity: newQuantity } : item
         )
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error("Quantity update error:", err.response?.status, err.response?.data || err.message);
       if (err.response?.status === 401) {
         setError("로그인이 필요합니다.");
@@ -373,7 +371,7 @@ export default function CartPage() {
               }}
             >
               결제하기
-            </Button> 
+            </Button>
           </Box>
         </>
       )}
@@ -399,7 +397,7 @@ export default function CartPage() {
                         cursor: "pointer",
                         position: "relative",
                         minWidth: 0,
-                        overflow: "visible", // 배지가 잘리지 않도록
+                        overflow: "visible",
                       }}
                       onClick={() => navigate(`/product/${product.id}`)}
                     >
@@ -408,17 +406,17 @@ export default function CartPage() {
                           badgeContent={`${product.discountRate}% OFF`}
                           sx={{
                             position: "absolute",
-                            top: 20, // 더 안쪽으로 이동
-                            right: 25, // 더 안쪽으로 이동
+                            top: 20,
+                            right: 25,
                             zIndex: 1,
                             "& .MuiBadge-badge": {
                               backgroundColor: "#ff5722",
                               color: "white",
-                              fontSize: "0.65rem", // 텍스트 크기 조정
-                              padding: "2px 6px", // 패딩 조정
+                              fontSize: "0.65rem",
+                              padding: "2px 6px",
                               borderRadius: "10px",
-                              minWidth: "30px", // 최소 너비 확보
-                              height: "20px", // 높이 조정
+                              minWidth: "30px",
+                              height: "20px",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -462,4 +460,6 @@ export default function CartPage() {
       )}
     </Container>
   );
-}
+};
+
+export default CartPage;

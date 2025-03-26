@@ -60,33 +60,6 @@ public class ProductController {
                 : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
-    @PostMapping
-    public ResponseEntity<Product> addProduct(@RequestBody Product product) {
-        log.info("새 상품 추가 요청: {}", product.getName());
-        try {
-            Product savedProduct = productService.createProduct(product);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedProduct);
-        } catch (IllegalArgumentException e) {
-            log.error("상품 추가 실패: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product productDetails) {
-        Product updatedProduct = productService.updateProduct(id, productDetails);
-        return updatedProduct != null
-                ? ResponseEntity.ok(updatedProduct)
-                : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
-        log.info("상품 삭제 요청: {}", id);
-        productService.deleteProduct(id);
-        return ResponseEntity.noContent().build();
-    }
-
     @GetMapping("/brands/{category}")
     public ResponseEntity<List<Map<String, Object>>> getBrandsByCategory(@PathVariable String category) {
         log.info("카테고리별 브랜드 조회 요청: category={}", category);

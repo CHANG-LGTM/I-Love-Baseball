@@ -36,7 +36,7 @@ public class CartService {
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
         // 이미 장바구니에 있는 상품인지 확인
-        CartItem existingItem = cartItemRepository.findByUserAndProductId(user, product.getId())
+        CartItem existingItem = cartItemRepository.findByUserAndProduct(user, product)
                 .orElse(null);
         if (existingItem != null) {
             existingItem.setQuantity(existingItem.getQuantity() + 1);

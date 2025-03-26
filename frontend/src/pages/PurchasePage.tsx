@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
   Card,
-  CardMedia,
   CardContent,
   Typography,
   TextField,
@@ -16,24 +15,22 @@ import {
   Alert,
 } from "@mui/material";
 import axios from "axios";
+import PortOne from "@portone/browser-sdk/v2";
 
-// 포트원 및 다음 주소 API 타입 선언
 declare global {
   interface Window {
-    PortOne: any;
     DaumPostcode: any;
+    PortOne?: any;
   }
 }
 
-interface Product {
+interface CartItem {
   id: number;
+  productId: number;
   name: string;
-  description: string;
   price: number;
-  originalPrice: number;
-  discountPercent: number;
   image: string;
-  stock: number;
+  quantity: number;
 }
 
 interface Address {
@@ -42,134 +39,80 @@ interface Address {
 }
 
 const PurchasePage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { state } = useLocation();
   const navigate = useNavigate();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [quantity, setQuantity] = useState<number>(1);
+  const [cartItems, setCartItems] = useState<CartItem[]>(state?.cartItems || []);
   const [name, setName] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [address, setAddress] = useState<Address>({ mainAddress: "", detailAddress: "" });
   const [paymentMethod, setPaymentMethod] = useState<string>("card");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [portOneLoaded, setPortOneLoaded] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [daumPostcodeLoaded, setDaumPostcodeLoaded] = useState<boolean>(false);
-  const postcodeRef = useRef<HTMLDivElement>(null);
+  const [portOneLoaded, setPortOneLoaded] = useState<boolean>(false);
 
-  // 포트원 SDK 및 다음 주소 API 로드
+  const nickname = localStorage.getItem("nickname");
+  const isLoggedIn = !!nickname;
+
+  // 로그인 상태 확인 및 리다이렉트
   useEffect(() => {
-    let isMounted = true;
+    if (!isLoggedIn) {
+      setError("로그인 후 구매 가능합니다.");
+      setTimeout(() => {
+        if (window.confirm("로그인 후 구매 가능합니다. 로그인 하시겠습니까?")) {
+          navigate("/login", { state: { from: window.location.pathname, cartItems } });
+        } else {
+          navigate("/");
+        }
+      }, 1000);
+    }
+  }, [isLoggedIn, navigate, cartItems]);
 
-    // 포트원 SDK
-    const portOneScript = document.createElement("script");
-    portOneScript.src = "https://cdn.iamport.kr/v1/iamport.js";
-    portOneScript.async = true;
-    portOneScript.onload = () => {
-      if (isMounted) {
-        console.log("PortOne SDK loaded successfully");
-        setPortOneLoaded(true);
-      }
-    };
-    portOneScript.onerror = () => {
-      if (isMounted) {
-        console.error("Failed to load PortOne SDK");
-        setError("결제 시스템 로드가 실패했습니다. 네트워크를 확인해 주세요.");
-      }
-    };
-    document.body.appendChild(portOneScript);
-
-    // 다음 주소 API
+  // Daum Postcode API 로드
+  useEffect(() => {
     const daumScript = document.createElement("script");
     daumScript.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
     daumScript.async = true;
     daumScript.onload = () => {
-      if (isMounted) {
-        console.log("Daum Postcode API loaded successfully");
-        setDaumPostcodeLoaded(true);
-      }
+      console.log("Daum Postcode API loaded successfully");
+      setDaumPostcodeLoaded(true);
     };
     daumScript.onerror = () => {
-      if (isMounted) {
-        console.error("Failed to load Daum Postcode API");
-        setError("주소 검색 API 로드가 실패했습니다. 네트워크를 확인해 주세요.");
-      }
+      console.error("Failed to load Daum Postcode API");
+      setError("주소 검색 API 로드가 실패했습니다. 네트워크를 확인해 주세요.");
     };
     document.body.appendChild(daumScript);
 
     return () => {
-      isMounted = false;
-      document.body.removeChild(portOneScript);
       document.body.removeChild(daumScript);
     };
   }, []);
 
-  // 상품 데이터 가져오기
+  // 포트원 SDK 로드 확인
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-        console.log(`Fetching product with ID: ${id}`);
-        const response = await axios.get(`http://localhost:8092/api/products/${id}`, {
-          withCredentials: true,
-        });
-        console.log("Product data:", response.data);
-        setProduct(response.data);
-        setError(null);
-      } catch (err) {
-        console.error("상품 불러오기 오류:", err.response?.data || err.message);
-        setError("상품을 불러오지 못했습니다. 서버 상태를 확인해 주세요.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (id) {
-      fetchProduct();
+    if (typeof PortOne !== "undefined") {
+      setPortOneLoaded(true);
     } else {
-      setError("잘못된 상품 ID입니다.");
-      setLoading(false);
+      setError("포트원 결제 SDK를 로드할 수 없습니다. 네트워크를 확인해 주세요.");
     }
-  }, [id]);
+  }, []);
 
-  // 로그인 상태 확인
-  const nickname = localStorage.getItem("nickname");
-  const isLoggedIn = !!nickname;
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      if (window.confirm("로그인 후 구매 가능합니다. 로그인 하시겠습니까?")) {
-        navigate("/login");
-      }
-    }
-  }, [isLoggedIn, navigate]);
-
-  // 총 결제 금액 계산
   const calculateTotal = () => {
-    if (!product) return 0;
-    const discountedPrice = 
-    // Math.round(
-    //   product.originalPrice * (1 - product.discountPercent / 100)
-    // );
-      product.price;
-    return discountedPrice * quantity;
+    return cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   };
 
-  // 주소 검색 열기
   const handlePostcode = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault(); // 기본 동작 방지
-    console.log("handlePostcode called");
-
+    event.preventDefault();
     if (!daumPostcodeLoaded) {
       setError("주소 검색 API가 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.");
-      console.log("DaumPostcode not loaded yet");
       return;
     }
 
     if (!window.daum?.Postcode) {
       setError("주소 검색 API를 찾을 수 없습니다. 페이지를 새로고침해 주세요.");
-      console.error("daum.Postcode is undefined");
       return;
     }
-    
+
     new window.daum.Postcode({
       oncomplete: (data: any) => {
         const fullAddress = data.address;
@@ -178,138 +121,123 @@ const PurchasePage: React.FC = () => {
           mainAddress: `${fullAddress}${extraAddress}`,
           detailAddress: address.detailAddress,
         });
-      }
-    }).open();
-    
-
-    new window.DaumPostcode({
-      oncomplete: (data: any) => {
-        const fullAddress = data.address;
-        const extraAddress = data.bname ? ` (${data.bname})` : "";
-        setAddress({
-          mainAddress: `${fullAddress}${extraAddress}`,
-          detailAddress: address.detailAddress,
-        });
-        console.log("Address selected:", `${fullAddress}${extraAddress}`);
-      },
-      onclose: () => {
-        console.log("Postcode popup closed");
       },
     }).open();
   };
 
-  // 포트원 결제 요청
   const handlePayment = async () => {
     if (!isLoggedIn) {
       setError("로그인 후 구매가 가능합니다.");
       return;
     }
-    if (!product || quantity > product.stock || !name || !phone || !address.mainAddress) {
-      setError("필수 정보를 모두 입력해 주세요. 재고를 확인하세요.");
+    if (!cartItems.length || !name || !phone || !address.mainAddress) {
+      setError("필수 정보를 모두 입력해 주세요.");
+      return;
+    }
+    if (!portOneLoaded) {
+      setError("포트원 결제 SDK가 로드되지 않았습니다. 페이지를 새로고침해 주세요.");
       return;
     }
 
-    if (!portOneLoaded) {
-      setError("결제 시스템이 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.");
-      return;
-    }
+    setLoading(true);
+    setError(null);
 
     try {
-      const { impUid, merchantUid, amount, success } = await new Promise((resolve) => {
-        window.PortOne.requestPayment({
-          pg: "html5_inicis",
-          payMethod: paymentMethod === "card" ? "card" : "trans",
-          merchantUid: `order_${Date.now()}`,
-          amount: calculateTotal(),
-          name: product.name,
-          buyerName: name,
-          buyerTel: phone,
-          buyerAddr: `${address.mainAddress} ${address.detailAddress}`,
-          mRedirectUrl: "http://localhost:5173/purchase/complete",
-          onClick: (response: any) => {
-            if (response.success) {
-              resolve(response);
-            } else {
-              setError("결제 창이 닫혔습니다. 다시 시도해 주세요.");
-              resolve({ success: false });
-            }
-          },
-        });
+      const orderData = {
+        amount: calculateTotal(),
+        orderName: cartItems.map((item) => item.name).join(", "),
+        customerName: name,
+        customerPhone: phone,
+        customerAddress: `${address.mainAddress} ${address.detailAddress}`,
+        paymentMethod,
+        cartItems: cartItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+      };
+
+      const response = await axios.post("http://localhost:8092/api/payments/portone", orderData, {
+        withCredentials: true,
       });
 
-      if (success) {
-        const orderData = {
-          productId: product.id,
-          quantity,
-          name,
-          phone,
-          address: `${address.mainAddress} ${address.detailAddress}`,
-          paymentMethod,
-          totalAmount: calculateTotal(),
-          impUid,
-          merchantUid,
-        };
-        await axios.post("http://localhost:8092/api/orders", orderData, {
-          withCredentials: true,
-        });
-        alert("결제가 완료되었습니다!");
-        navigate("/");
+      const { orderId } = response.data;
+
+      const paymentResponse = await PortOne.requestPayment({
+        storeId: "store-1928f2a9-df1e-4126-9f6f-d9ac630a7825",
+        channelKey: "channel-key-4e815d5c-761a-4bce-967f-6453080e9b7e",
+        paymentId: `payment-${orderId}-${Date.now()}`,
+        orderName: orderData.orderName,
+        totalAmount: orderData.amount,
+        currency: "CURRENCY_KRW",
+        payMethod: paymentMethod === "card" ? "CARD" : "TRANSFER",
+        customData: {
+          item: orderData.orderName,
+        },
+        redirectUrl: `http://localhost:3000/purchase/${orderId}`,
+      });
+
+      if (paymentResponse.status === "PAID") {
+        await axios.post(
+          "http://localhost:8092/api/payments/portone/verify",
+          null,
+          {
+            params: {
+              paymentKey: paymentResponse.paymentKey,
+              orderId: orderId,
+            },
+            withCredentials: true,
+          }
+        );
+        navigate(`/purchase/${orderId}`);
+      } else {
+        setError("결제가 취소되었거나 실패했습니다.");
       }
-    } catch (err) {
-      console.error("결제 실패:", err);
-      setError("결제 처리에 실패했습니다. 다시 시도해 주세요.");
+    } catch (err: any) {
+      console.error("결제 요청 실패:", err);
+      if (err.response?.status === 401) {
+        setError("인증이 필요합니다. 다시 로그인해 주세요.");
+        localStorage.removeItem("nickname");
+        localStorage.removeItem("token");
+        setTimeout(() => {
+          navigate("/login", { state: { from: window.location.pathname, cartItems } });
+        }, 1000);
+      } else {
+        setError("결제 요청에 실패했습니다. 다시 시도해 주세요.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) return <Typography align="center">로딩 중...</Typography>;
-  if (error) return <Alert severity="error">{error}</Alert>;
-  if (!product) return <Typography align="center">상품을 찾을 수 없습니다.</Typography>;
+  if (!cartItems.length) {
+    return <Typography align="center">장바구니가 비어 있습니다.</Typography>;
+  }
 
   return (
     <Container maxWidth="sm" sx={{ mt: 10 }}>
       <Card sx={{ p: 2, boxShadow: 3 }}>
-        <CardMedia
-          component="img"
-          height="300"
-          image={product.image || "https://placehold.co/300x200"}
-          alt={product.name}
-          sx={{ objectFit: "contain" }}
-        />
         <CardContent>
           <Typography variant="h4" gutterBottom>
-            {product.name}
+            주문 정보
           </Typography>
-          <Typography variant="body1" color="text.secondary" paragraph>
-            {product.description}
-          </Typography>
-          { product.originalPrice &&
-          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-            <Typography variant="h6" color="text.primary" sx={{ mr: 2 }}>
-              원가: {product.originalPrice?.toLocaleString() ?? product.price}원
-            </Typography>
-            
-            <Typography variant="h6" color="error">
-              할인: {product.discountPercent}% OFF
-            </Typography>  
-            
-          </Box>
-          }
+          {cartItems.map((item) => (
+            <Box key={item.id} sx={{ mb: 2, display: "flex", alignItems: "center" }}>
+              <img
+                src={item.image}
+                alt={item.name}
+                style={{ width: 80, height: 80, objectFit: "contain", marginRight: 16 }}
+              />
+              <Box>
+                <Typography variant="body1">{item.name}</Typography>
+                <Typography variant="body2">
+                  {item.price.toLocaleString()}원 x {item.quantity}개
+                </Typography>
+              </Box>
+            </Box>
+          ))}
           <Typography variant="h5" color="primary" gutterBottom>
-            판매가: {calculateTotal().toLocaleString()}원
+            총 결제 금액: {calculateTotal().toLocaleString()}원
           </Typography>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1">수량:</Typography>
-            <TextField
-              type="number"
-              value={quantity}
-              onChange={(e) =>
-                setQuantity(Math.max(1, Math.min(product.stock, Number(e.target.value))))
-              }
-              inputProps={{ min: 1, max: product.stock }}
-              sx={{ width: 100, mr: 2 }}
-            />
-            <Typography variant="body2">재고: {product.stock}개</Typography>
-          </Box>
           <Box sx={{ mb: 2 }}>
             <TextField
               label="수령인 이름"
@@ -362,15 +290,21 @@ const PurchasePage: React.FC = () => {
               <MenuItem value="bank">계좌 이체</MenuItem>
             </Select>
           </FormControl>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <Button
             variant="contained"
             color="primary"
             fullWidth
             size="large"
             onClick={handlePayment}
+            disabled={loading}
             sx={{ mt: 2, py: 1.5 }}
           >
-            결제하기 ({calculateTotal().toLocaleString()}원)
+            {loading ? "결제 진행 중..." : `결제하기 (${calculateTotal().toLocaleString()}원)`}
           </Button>
         </CardContent>
       </Card>

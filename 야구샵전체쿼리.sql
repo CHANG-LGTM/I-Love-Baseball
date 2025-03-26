@@ -1,23 +1,38 @@
--- 기존 테이블 삭제
+-- 기존 테이블 삭제 (필요 시)
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS products;
-DROP TABLE IF EXISTS discounted_products;
-DROP TABLE IF EXISTS  cart_items;
--- 통합 테이블 생성
-CREATE TABLE products (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,              -- 고유 ID (자동 증가)
-    name VARCHAR(255) NOT NULL,                        -- 상품명
-    description TEXT NOT NULL,                         -- 상품 설명
-    price INT NOT NULL,                                -- 현재 가격 (할인 적용 후 가격)
-    original_price INT DEFAULT NULL,                   -- 원래 가격 (할인 상품에만 사용, NULL 허용)
-    discount_percent INT DEFAULT NULL,                 -- 할인율 (할인 상품에만 사용, NULL 허용)
-    stock INT NOT NULL DEFAULT 0,                      -- 재고 수량 (기본값 0)
-    category VARCHAR(50) NOT NULL,                     -- 카테고리 (예: 'bats', 'gloves' 등)
-    image VARCHAR(500) NOT NULL,                       -- 상품 이미지 URL
-    is_discounted BOOLEAN NOT NULL DEFAULT FALSE,      -- 할인 여부 (기본값: false)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    -- 생성일 (기본값: 현재 시간)
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- 수정일 (자동 업데이트)
+DROP TABLE IF EXISTS users;
+
+-- users 테이블 생성 (이미 존재하지 않는 경우)
+CREATE TABLE users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    nickname VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- products 테이블 (기존 코드 유지)
+CREATE TABLE products (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    price INT NOT NULL,
+    original_price INT DEFAULT NULL,
+    discount_percent INT DEFAULT NULL,
+    stock INT NOT NULL DEFAULT 0,
+    category VARCHAR(50) NOT NULL,
+    image VARCHAR(500) NOT NULL,
+    is_discounted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    brand VARCHAR(50) DEFAULT 'Unknown'
+) ENGINE=InnoDB;
+
+-- cart_items 테이블 (기존 코드 유지)
 CREATE TABLE cart_items (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -25,10 +40,43 @@ CREATE TABLE cart_items (
     quantity INT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (product_id) REFERENCES products(id)
-);
+) ENGINE=InnoDB;
+
+-- orders 테이블 생성
+CREATE TABLE orders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    order_id varchar(255) NOT NULL,
+    amount INT NOT NULL,
+    order_name VARCHAR(255) NOT NULL,
+    customer_name VARCHAR(100) NOT NULL,
+    customer_phone VARCHAR(20) NOT NULL,
+    customer_address VARCHAR(500) NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- 주문 상태 (PENDING, COMPLETED, FAILED 등)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- order_items 테이블 생성
+CREATE TABLE order_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    price_at_purchase INT NOT NULL, -- 구매 당시의 상품 가격
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
+) ENGINE=InnoDB;
+
 -- 인덱스 추가 (조회 성능 최적화)
 CREATE INDEX idx_category ON products (category);
 CREATE INDEX idx_is_discounted ON products (is_discounted);
+CREATE INDEX idx_user_id ON cart_items (user_id);
+CREATE INDEX idx_order_user_id ON orders (user_id);
+CREATE INDEX idx_order_status ON orders (status);
+CREATE INDEX idx_order_item_order_id ON order_items (order_id);
 
 -- 데이터 삽입
 -- 기존 product 테이블 데이터
@@ -208,4 +256,56 @@ VALUES
 UPDATE products
 SET price = ROUND(original_price * (1 - discount_percent / 100.0))
 WHERE is_discounted = TRUE AND original_price IS NOT NULL AND discount_percent IS NOT NULL;
+
+
+
+
+-- 필터링
+UPDATE products
+SET brand = CASE
+    WHEN name LIKE '골드%' THEN '골드'
+    WHEN name LIKE '프랭클린%' THEN '프랭클린'
+    WHEN name LIKE '스톰%' THEN '스톰'
+    WHEN name LIKE '와니엘%' THEN '와니엘'
+    WHEN name LIKE '웨이트레이드%' THEN '웨이트레이드'
+    WHEN name LIKE '5TOOLS%' THEN '5TOOLS'
+    WHEN name LIKE '어나더레벨%' THEN '어나더레벨'
+    WHEN name LIKE '본%' THEN '본'
+    WHEN name LIKE 'BBK%' THEN 'BBK'
+    WHEN name LIKE '미즈노%' THEN '미즈노'
+    WHEN name LIKE '하타케야마%' THEN '하타케야마'
+    WHEN name LIKE '제트%' THEN '제트'
+    WHEN name LIKE '이보쉴드%' THEN '이보쉴드'
+    WHEN name LIKE '나이키%' THEN '나이키'
+    WHEN name LIKE '브라더%' THEN '브라더'
+    WHEN name LIKE '윌슨%' THEN '윌슨'
+    WHEN name LIKE '롤링스%' THEN '롤링스'
+    WHEN name LIKE '아식스%' THEN '아식스'
+    WHEN name LIKE '프로-스펙스%' THEN '프로-스펙스'
+    WHEN name LIKE '다이아몬드%' THEN '다이아몬드'
+    WHEN name LIKE '벨가드%' THEN '벨가드'
+    WHEN name LIKE 'SSK%' THEN 'SSK'
+    WHEN name LIKE '그놈의야구%' THEN '그놈의야구'
+    WHEN name LIKE '44%' THEN '44'
+    WHEN name LIKE '에이뉴우%' THEN '에이뉴우'
+    WHEN name LIKE 'MAZOR%' THEN 'MAZOR'
+    WHEN name LIKE '이스턴%' THEN '이스턴'
+    WHEN name LIKE '데상트%' THEN '데상트'
+    WHEN name LIKE '녹스%' THEN '녹스'
+    WHEN name LIKE '도쿠마%' THEN '도쿠마'
+    WHEN name LIKE '골드이스트%' THEN '골드이스트'
+    WHEN name LIKE '언더아머%' THEN '언더아머'
+    WHEN name LIKE '모리모토%' THEN '모리모토'
+    WHEN name LIKE '크라운비%' THEN '크라운비'
+    WHEN name LIKE '브렛%' THEN '브렛'
+    WHEN name LIKE '엑스필더%' THEN '엑스필더'
+    WHEN name LIKE '프로스펙스%' THEN '프로스펙스'
+    WHEN name LIKE '강스%' THEN '강스'
+    WHEN name LIKE '뉴발란스%' THEN '뉴발란스'
+    WHEN name LIKE 'GN%' THEN 'GN'
+    WHEN name LIKE '아디다스%' THEN '아디다스'
+     WHEN name LIKE '다비드%' THEN '다비드'
+    ELSE 'Unknown'
+END;
+
 

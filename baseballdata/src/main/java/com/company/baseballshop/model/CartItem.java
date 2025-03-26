@@ -1,5 +1,6 @@
 package com.company.baseballshop.model;
 
+import com.company.baseballshop.dto.CartItemDTO;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,7 +10,7 @@ import lombok.Setter;
 @Table(name = "cart_items")
 @Getter
 @Setter
-public class CartItem {
+public class CartItem extends CartItemDTO {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

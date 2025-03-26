@@ -1,5 +1,7 @@
 package com.company.baseballshop.security;
 
+import com.company.baseballshop.dto.Role;
+import com.company.baseballshop.model.User;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -57,6 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && jwtTokenProvider.validateToken(token)) {
             String email = jwtTokenProvider.getEmailFromToken(token);
             String role = jwtTokenProvider.getRoleFromToken(token);
+
             Authentication auth = new UsernamePasswordAuthenticationToken(
                     email, null, Collections.singleton(new SimpleGrantedAuthority(role)));
             SecurityContextHolder.getContext().setAuthentication(auth);

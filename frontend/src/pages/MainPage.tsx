@@ -29,13 +29,22 @@ interface DiscountedProduct {
   isDiscounted: boolean;
 }
 
+interface CartItem {
+  id: number;
+  productId: number;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+}
+
 export default function MainPage() {
   const [products, setProducts] = useState<DiscountedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cart, setCart] = useState<number[]>([]);
   const [filterCategory, setFilterCategory] = useState<string>("전체");
-  const [pageLoading, setPageLoading] = useState<boolean>(true); // 페이지 로딩 상태
+  const [pageLoading, setPageLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
   // 페이지 로드 시 상품 데이터 가져오기
@@ -65,7 +74,7 @@ export default function MainPage() {
         setProducts([]);
       } finally {
         setLoading(false);
-        setPageLoading(false); // 로딩 완료
+        setPageLoading(false);
       }
     };
     fetchProducts();
@@ -97,7 +106,7 @@ export default function MainPage() {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
-    console.log("toggleCart - isLoggedIn:", isLoggedIn); // 디버깅 로그
+    console.log("toggleCart - isLoggedIn:", isLoggedIn);
     if (pageLoading || !isLoggedIn) {
       if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
@@ -122,7 +131,7 @@ export default function MainPage() {
     }
   };
 
-  const handlePurchase = (productId: number, e: React.MouseEvent) => {
+  const handlePurchase = (product: DiscountedProduct, e: React.MouseEvent) => {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
@@ -132,7 +141,19 @@ export default function MainPage() {
       }
       return;
     }
-    navigate(`/purchase/${productId}`);
+
+    // 선택한 상품을 CartItem 형식으로 변환
+    const cartItem: CartItem = {
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      price: calculateDiscountedPrice(product.originalPrice, product.discountPercent),
+      image: product.image,
+      quantity: 1, // 기본 수량 1로 설정
+    };
+
+    // /checkout으로 이동하며 선택한 상품 정보를 state로 전달
+    navigate("/checkout", { state: { cartItems: [cartItem] } });
   };
 
   const calculateDiscountedPrice = (price: number, discount: number) => {
@@ -362,7 +383,7 @@ export default function MainPage() {
                             padding: "8px 20px",
                             borderRadius: "8px",
                           }}
-                          onClick={(e) => handlePurchase(product.id, e)}
+                          onClick={(e) => handlePurchase(product, e)}
                         >
                           구매하기
                         </Button>

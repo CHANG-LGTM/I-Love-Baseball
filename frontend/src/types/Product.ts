@@ -1,9 +1,13 @@
 export interface Product {
-  id: number;
+  id?: number;
   name: string;
   description: string;
-  originalPrice: number;
-  discountPercent?: number; // Optional discount percentage
+  price: number;
+  stock: number;
   category: string;
-  image?: string;
-  }
+  image: string;
+  discounted: boolean;
+  originalPrice?: number | null;
+  discountPercent?: number | null;
+  brand: string;
+}

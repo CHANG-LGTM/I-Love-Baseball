@@ -36,6 +36,7 @@ public class User implements UserDetails {
     private Role role;
 
     private String provider;
+
     private String providerId;
 
     public User(Object o, String email, String encodedPassword, Role role, String s, String s1) {
