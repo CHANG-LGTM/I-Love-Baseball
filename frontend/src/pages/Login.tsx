@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// Login.tsx
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,15 +12,27 @@ import {
   Alert,
   Box,
 } from "@mui/material";
-import { useAuth } from "../AuthContext"; // Context 파일 경로
+import { useAuth } from "../AdminPage/AuthContext";
 
 const Login: React.FC = () => {
-  const { nickname, setNickname, setToken } = useAuth();
+  const { nickname, setNickname, isAdmin, checkAuth } = useAuth();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthSuccess = urlParams.get("success");
+    if (oauthSuccess === "true") {
+      checkAuth().then((isAuthenticated) => {
+        if (isAuthenticated) {
+          navigate("/");
+        }
+      });
+    }
+  }, [checkAuth, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,12 +48,16 @@ const Login: React.FC = () => {
         }
       );
       const newNickname = response.data.nickname;
-      const token = response.headers["authorization"] || response.data.token;
-      localStorage.setItem("nickname", newNickname);
-      if (token) localStorage.setItem("token", token);
-      setNickname(newNickname);
-      setToken(token);
-      navigate("/"); // 바로 메인 페이지로 이동
+      if (newNickname) {
+        setNickname(newNickname);
+        localStorage.setItem("nickname", newNickname);
+      }
+      const isAuthenticated = await checkAuth();
+      if (isAuthenticated) {
+        navigate("/");
+      } else {
+        setError("로그인에 실패했습니다. 다시 시도해주세요.");
+      }
     } catch (err: any) {
       console.error("로그인 실패:", err.response?.data || err.message);
       setError(err.response?.data?.error || "로그인 실패");
@@ -51,12 +68,14 @@ const Login: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.post("http://localhost:8092/api/auth/logout", {}, { withCredentials: true });
-      localStorage.removeItem("token");
+      await axios.post(
+        "http://localhost:8092/api/auth/logout",
+        {},
+        { withCredentials: true }
+      );
       localStorage.removeItem("nickname");
       setNickname(null);
-      setToken(null);
-      navigate("/"); // 로그아웃 후 메인 페이지로 이동
+      navigate("/");
     } catch (error) {
       console.error("로그아웃 실패:", error);
       alert("로그아웃에 실패했습니다.");

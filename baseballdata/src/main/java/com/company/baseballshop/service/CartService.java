@@ -9,12 +9,14 @@ import com.company.baseballshop.model.User;
 import com.company.baseballshop.repository.CartItemRepository;
 import com.company.baseballshop.repository.ProductRepository;
 import com.company.baseballshop.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class CartService {
 
@@ -35,18 +37,19 @@ public class CartService {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
-        // 이미 장바구니에 있는 상품인지 확인
         CartItem existingItem = cartItemRepository.findByUserAndProduct(user, product)
                 .orElse(null);
         if (existingItem != null) {
             existingItem.setQuantity(existingItem.getQuantity() + 1);
             cartItemRepository.save(existingItem);
+            log.info("장바구니 항목 수량 증가: user={}, productId={}", email, request.getProductId());
         } else {
             CartItem cartItem = new CartItem();
             cartItem.setUser(user);
             cartItem.setProduct(product);
             cartItem.setQuantity(1);
             cartItemRepository.save(cartItem);
+            log.info("장바구니 항목 추가: user={}, productId={}", email, request.getProductId());
         }
     }
 
@@ -73,6 +76,7 @@ public class CartService {
                 .orElseThrow(() -> new IllegalArgumentException("장바구니 항목을 찾을 수 없습니다."));
         cartItem.setQuantity(request.getQuantity());
         cartItemRepository.save(cartItem);
+        log.info("장바구니 항목 수정: cartItemId={}, quantity={}", cartItemId, request.getQuantity());
     }
 
     @Transactional
@@ -80,5 +84,6 @@ public class CartService {
         CartItem cartItem = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new IllegalArgumentException("장바구니 항목을 찾을 수 없습니다."));
         cartItemRepository.delete(cartItem);
+        log.info("장바구니 항목 삭제: cartItemId={}", cartItemId);
     }
 }

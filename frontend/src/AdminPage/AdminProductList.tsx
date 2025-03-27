@@ -1,4 +1,4 @@
-// src/pages/admin/AdminProductList.tsx
+// AdminProductList.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -17,26 +17,33 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import { Product } from "../types/Product";
+import { useAuth } from "../AdminPage/AuthContext";
 
 const AdminProductList: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { isAdmin, checkAuth } = useAuth();
 
   useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
+      const isAuthenticated = await checkAuth();
+
+      if (!isAuthenticated || !isAdmin) {
+        navigate("/login");
+        return;
+      }
+
       try {
-        setLoading(true);
         const response = await axios.get("http://localhost:8092/api/admin/products", {
           withCredentials: true,
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
         });
         setProducts(response.data);
         setError(null);
       } catch (err: any) {
+        console.error("상품 목록 불러오기 실패:", err);
         if (err.response?.status === 403) {
           setError("관리자 권한이 필요합니다.");
           setTimeout(() => navigate("/login"), 2000);
@@ -48,16 +55,13 @@ const AdminProductList: React.FC = () => {
       }
     };
     fetchProducts();
-  }, [navigate]);
+  }, [navigate, isAdmin, checkAuth]);
 
   const handleDelete = async (id: number) => {
     if (window.confirm("정말로 이 상품을 삭제하시겠습니까?")) {
       try {
         await axios.delete(`http://localhost:8092/api/admin/products/${id}`, {
           withCredentials: true,
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
         });
         setProducts(products.filter((product) => product.id !== id));
       } catch (err: any) {
@@ -70,8 +74,12 @@ const AdminProductList: React.FC = () => {
     return <CircularProgress sx={{ display: "block", mx: "auto", mt: 5 }} />;
   }
 
+  if (!isAdmin) {
+    return null;
+  }
+
   return (
-    <Container maxWidth="lg" sx={{ mt: 5 }}>
+    <Container maxWidth="lg" sx={{ mt: 12 }}>
       <Typography variant="h4" gutterBottom>
         상품 관리
       </Typography>

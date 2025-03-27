@@ -92,7 +92,6 @@ const Register: React.FC = () => {
               onChange={(e) => setRole(e.target.value)}
             >
               <MenuItem value="USER">User</MenuItem>
-              <MenuItem value="ADMIN">Admin</MenuItem>
             </TextField>
             <Box mt={2}>
               <Button type="submit" variant="contained" color="primary" fullWidth>

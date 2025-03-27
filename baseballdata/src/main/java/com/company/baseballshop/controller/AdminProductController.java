@@ -21,7 +21,7 @@ public class AdminProductController {
     private ProductService productService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Product>> getAllProducts() {
         log.info("관리자: 모든 상품 조회 요청");
         List<Product> products = productService.getAllProducts();
@@ -29,7 +29,7 @@ public class AdminProductController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Product> getProductById(@PathVariable Long id) {
         log.info("관리자: 상품 상세 조회 요청: {}", id);
         Product product = productService.getProductById(id);
@@ -39,7 +39,7 @@ public class AdminProductController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Product> addProduct(@RequestBody Product product) {
         log.info("관리자: 새 상품 추가 요청: {}", product.getName());
         try {
@@ -52,7 +52,7 @@ public class AdminProductController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product productDetails) {
         log.info("관리자: 상품 수정 요청: id={}, name={}", id, productDetails.getName());
         Product updatedProduct = productService.updateProduct(id, productDetails);
@@ -62,7 +62,7 @@ public class AdminProductController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         log.info("관리자: 상품 삭제 요청: {}", id);
         productService.deleteProduct(id);

@@ -29,7 +29,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         log.info("OAuth2 로그인 시도, 사용자: {}", user.getEmail());
         String token;
         try {
-            Role role = user.getRole() != null ? user.getRole() : Role.USER; // 기본값 설정
+            // Role이 null일 경우 기본값으로 Role.USER 설정
+            String role = (user.getRole() != null) ? user.getRole().name() : Role.USER.name();
             token = jwtTokenProvider.createToken(user.getEmail(), role);
             log.info("토큰 생성 성공: {}", token);
         } catch (Exception e) {
@@ -39,7 +40,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         }
 
         String cookie = String.format("jwt=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%d",
-                token, 24 * 60 * 60); // 24시간
+                token, 24 * 60 * 60);
         response.addHeader(HttpHeaders.SET_COOKIE, cookie);
 
         String redirectUrl = "http://localhost:5173";

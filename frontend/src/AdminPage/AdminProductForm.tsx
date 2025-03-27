@@ -14,13 +14,16 @@ import {
   Checkbox,
   FormControlLabel,
   Alert,
+  CircularProgress,
 } from "@mui/material";
 import axios from "axios";
 import { Product } from "../types/Product";
+import { useAuth } from "./AuthContext";
 
 const AdminProductForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin, checkAuth } = useAuth();
   const [product, setProduct] = useState<Product>({
     name: "",
     description: "",
@@ -34,25 +37,33 @@ const AdminProductForm: React.FC = () => {
     brand: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (id) {
-      const fetchProduct = async () => {
+    const initialize = async () => {
+      setLoading(true);
+      await checkAuth(); // 인증 상태 확인
+
+      if (!isAdmin) {
+        navigate("/login");
+        return;
+      }
+
+      if (id) {
         try {
           const response = await axios.get(`http://localhost:8092/api/admin/products/${id}`, {
             withCredentials: true,
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
           });
           setProduct(response.data);
+          setError(null);
         } catch (err: any) {
           setError("상품 정보를 불러오는데 실패했습니다.");
         }
-      };
-      fetchProduct();
-    }
-  }, [id]);
+      }
+      setLoading(false);
+    };
+    initialize();
+  }, [id, isAdmin, navigate, checkAuth]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target;
@@ -67,20 +78,12 @@ const AdminProductForm: React.FC = () => {
     e.preventDefault();
     try {
       if (id) {
-        // 수정
         await axios.put(`http://localhost:8092/api/admin/products/${id}`, product, {
           withCredentials: true,
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
         });
       } else {
-        // 등록
         await axios.post("http://localhost:8092/api/admin/products", product, {
           withCredentials: true,
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
         });
       }
       navigate("/admin/products");
@@ -89,8 +92,16 @@ const AdminProductForm: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return <CircularProgress sx={{ display: "block", mx: "auto", mt: 5 }} />;
+  }
+
+  if (!isAdmin) {
+    return null; // 리다이렉트 처리 중이므로 아무것도 렌더링하지 않음
+  }
+
   return (
-    <Container maxWidth="sm" sx={{ mt: 5 }}>
+    <Container maxWidth="sm" sx={{ mt: 12 }}>
       <Typography variant="h4" gutterBottom>
         {id ? "상품 수정" : "상품 등록"}
       </Typography>

@@ -1,24 +1,42 @@
 package com.company.baseballshop.dto;
 
+import com.company.baseballshop.dto.Role;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-@Getter
-@Setter
-@NoArgsConstructor
 public class AuthRequest {
     private String email;
     private String password;
-    private String nickname; // ✅ 닉네임 필드 추가
-    private Role role; // 회원가입 시 사용될 역할 정보
+    private String nickname;
+    private Role role;
 
-    public AuthRequest(String email, String password, Role role,String nickname) {
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getNickname() {
+        return nickname;
+    }
+
+    public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public Role getRole() {
+        return role != null ? role : Role.USER; // 기본값 설정
+    }
+
+    public void setRole(Role role) {
         this.role = role;
     }
 }
-
