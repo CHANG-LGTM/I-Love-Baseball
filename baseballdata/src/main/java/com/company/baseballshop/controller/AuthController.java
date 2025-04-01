@@ -57,7 +57,7 @@ public class AuthController {
         String encodedPassword = passwordEncoder.encode(authRequest.getPassword());
         log.info("해싱된 비밀번호: {}", encodedPassword);
 
-        User user = new User(null, authRequest.getEmail(), encodedPassword, authRequest.getNickname(), Role.ADMIN, "", "");
+        User user = new User(null, authRequest.getEmail(), encodedPassword, authRequest.getNickname(), Role.USER, "", "");
         userRepository.save(user);
 
         log.info("회원가입 완료! 저장된 유저 정보: {}", user);

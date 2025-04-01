@@ -1,5 +1,5 @@
 // src/pages/admin/AdminProductForm.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Container,
@@ -32,12 +32,14 @@ const AdminProductForm: React.FC = () => {
     category: "",
     image: "",
     discounted: false,
-    originalPrice: null,
-    discountPercent: null,
+    originalPrice: 0,
+    discountPercent: 0,
     brand: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     const initialize = async () => {
@@ -54,9 +56,12 @@ const AdminProductForm: React.FC = () => {
           const response = await axios.get(`http://localhost:8092/api/admin/products/${id}`, {
             withCredentials: true,
           });
-          setProduct(response.data);
+          const fetchedProduct = response.data;
+          setProduct(fetchedProduct);
+          setImagePreview(fetchedProduct.image || null); // 기존 이미지 미리보기 설정
           setError(null);
-        } catch (err: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (err: unknown) {
           setError("상품 정보를 불러오는데 실패했습니다.");
         }
       }
@@ -74,20 +79,72 @@ const AdminProductForm: React.FC = () => {
     setProduct((prev) => ({ ...prev, discounted: e.target.checked }));
   };
 
+  // 이미지 파일 처리
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 드래그 앤 드롭 처리
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setError("이미지 파일만 업로드 가능합니다.");
+    }
+  }, []);
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let imageUrl = product.image;
+
+      // 이미지 파일이 있는 경우 업로드
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append("file", imageFile);
+        const uploadResponse = await axios.post("http://localhost:8092/api/admin/uploads", formData, {
+          withCredentials: true,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        imageUrl = uploadResponse.data.url; // 서버에서 반환된 이미지 URL
+      }
+
+      const updatedProduct = { ...product, image: imageUrl };
+
       if (id) {
-        await axios.put(`http://localhost:8092/api/admin/products/${id}`, product, {
+        await axios.put(`http://localhost:8092/api/admin/products/${id}`, updatedProduct, {
           withCredentials: true,
         });
       } else {
-        await axios.post("http://localhost:8092/api/admin/products", product, {
+        await axios.post("http://localhost:8092/api/admin/products", updatedProduct, {
           withCredentials: true,
         });
       }
       navigate("/admin/products");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError("상품 저장에 실패했습니다.");
     }
   };
@@ -102,7 +159,7 @@ const AdminProductForm: React.FC = () => {
 
   return (
     <Container maxWidth="sm" sx={{ mt: 12 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom align="center">
         {id ? "상품 수정" : "상품 등록"}
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -161,14 +218,47 @@ const AdminProductForm: React.FC = () => {
             <MenuItem value="shoes">야구화</MenuItem>
           </Select>
         </FormControl>
-        <TextField
-          label="이미지 URL"
-          name="image"
-          value={product.image}
-          onChange={handleChange}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
+
+        {/* 이미지 업로드 및 드래그 앤 드롭 영역 */}
+        <Box
+          sx={{
+            border: "2px dashed #ccc",
+            borderRadius: 2,
+            p: 2,
+            mb: 2,
+            textAlign: "center",
+            backgroundColor: "#f9f9f9",
+          }}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
+          <Typography variant="body1" gutterBottom>
+            이미지를 드래그하여 업로드하거나 클릭하여 파일 선택
+          </Typography>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            style={{ display: "none" }}
+            id="image-upload"
+          />
+          <label htmlFor="image-upload">
+            <Button variant="contained" component="span" sx={{ mb: 2 }}>
+              파일 선택
+            </Button>
+          </label>
+          {imagePreview && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2">미리보기:</Typography>
+              <img
+                src={imagePreview}
+                alt="미리보기"
+                style={{ maxWidth: "100%", maxHeight: 200, objectFit: "contain" }}
+              />
+            </Box>
+          )}
+        </Box>
+
         <TextField
           label="브랜드"
           name="brand"

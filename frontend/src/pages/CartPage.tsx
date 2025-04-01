@@ -40,6 +40,9 @@ interface RecommendedProduct {
   image: string;
 }
 
+// 수정 1: BASE_IMAGE_URL 추가
+const BASE_IMAGE_URL = "http://localhost:8092/uploads/";
+
 const PriceDisplay: React.FC<{
   price: number;
   originalPrice?: number;
@@ -78,6 +81,27 @@ const CartPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // 수정 2: getImageSrc 함수 추가
+  const getImageSrc = (image: string | undefined): string => {
+    if (!image) {
+      return "/path/to/fallback-image.jpg"; // 기본 대체 이미지 경로
+    }
+    console.log("product.image:", image); // 디버깅용 출력
+    if (image.startsWith("data:image")) {
+      return image;
+    }
+    if (image.startsWith("http://") || image.startsWith("https://")) {
+      return image; // 기존 DB 이미지 유지
+    }
+    // 전체 경로에서 파일 이름만 추출
+    const fileName = image.split("/").pop();
+    // 파일 이름을 URL 인코딩
+    const encodedFileName = encodeURIComponent(fileName || "");
+    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
+    console.log("Generated image URL:", imageUrl); // 디버깅용 출력
+    return imageUrl;
+  };
+
   const getRandomItems = (items: RecommendedProduct[], maxCount: number): RecommendedProduct[] => {
     const shuffled = [...items].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, Math.min(maxCount, items.length));
@@ -99,7 +123,8 @@ const CartPage: React.FC = () => {
           productId: item.productId,
           name: item.name || "상품명 없음",
           price: item.price || 0,
-          image: item.image || "https://placehold.co/300x200",
+          // 수정 3: getImageSrc 함수 적용 (장바구니 아이템)
+          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
           quantity: item.quantity || 1,
         }));
         setCartItems(formattedItems);
@@ -123,20 +148,21 @@ const CartPage: React.FC = () => {
           price: item.price || 0,
           originalPrice: item.originalPrice || item.price,
           discountRate: item.discountRate || (item.originalPrice && item.price ? Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100) : 0),
-          image: item.image || "https://placehold.co/300x200",
+          // 수정 4: getImageSrc 함수 적용 (추천 상품)
+          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
         }));
         setRecommendedProducts(randomRecommended);
       } else {
         const defaultProducts: RecommendedProduct[] = [
-          { id: 1, name: "야구 배트 1", price: 40000, originalPrice: 50000, image: "https://placehold.co/300x200" },
-          { id: 2, name: "배팅 장갑 1", price: 24000, originalPrice: 30000, image: "https://placehold.co/300x200" },
-          { id: 3, name: "보호 장비 1", price: 36000, originalPrice: 45000, image: "https://placehold.co/300x200" },
-          { id: 4, name: "야구 배트 2", price: 44000, originalPrice: 55000, image: "https://placehold.co/300x200" },
-          { id: 5, name: "배팅 장갑 2", price: 25600, originalPrice: 32000, image: "https://placehold.co/300x200" },
-          { id: 6, name: "보호 장비 2", price: 37600, originalPrice: 47000, image: "https://placehold.co/300x200" },
-          { id: 7, name: "야구 배트 3", price: 48000, originalPrice: 60000, image: "https://placehold.co/300x200" },
-          { id: 8, name: "배팅 장갑 3", price: 28000, originalPrice: 35000, image: "https://placehold.co/300x200" },
-          { id: 9, name: "보호 장비 3", price: 39200, originalPrice: 49000, image: "https://placehold.co/300x200" },
+          { id: 1, name: "야구 배트 1", price: 40000, originalPrice: 50000, image: "/path/to/fallback-image.jpg" },
+          { id: 2, name: "배팅 장갑 1", price: 24000, originalPrice: 30000, image: "/path/to/fallback-image.jpg" },
+          { id: 3, name: "보호 장비 1", price: 36000, originalPrice: 45000, image: "/path/to/fallback-image.jpg" },
+          { id: 4, name: "야구 배트 2", price: 44000, originalPrice: 55000, image: "/path/to/fallback-image.jpg" },
+          { id: 5, name: "배팅 장갑 2", price: 25600, originalPrice: 32000, image: "/path/to/fallback-image.jpg" },
+          { id: 6, name: "보호 장비 2", price: 37600, originalPrice: 47000, image: "/path/to/fallback-image.jpg" },
+          { id: 7, name: "야구 배트 3", price: 48000, originalPrice: 60000, image: "/path/to/fallback-image.jpg" },
+          { id: 8, name: "배팅 장갑 3", price: 28000, originalPrice: 35000, image: "/path/to/fallback-image.jpg" },
+          { id: 9, name: "보호 장비 3", price: 39200, originalPrice: 49000, image: "/path/to/fallback-image.jpg" },
         ];
         setRecommendedProducts(
           getRandomItems(defaultProducts, 9).map((item) => ({
@@ -316,10 +342,10 @@ const CartPage: React.FC = () => {
                 <CardMedia
                   component="img"
                   sx={{ width: 120, borderRadius: "8px" }}
-                  image={item.image}
+                  image={item.image} // 수정 5: getImageSrc 이미 적용됨
                   alt={item.name}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x200";
+                    (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 6: 대체 이미지 경로 변경
                   }}
                 />
                 <CardContent sx={{ flex: 1 }}>
@@ -427,9 +453,12 @@ const CartPage: React.FC = () => {
                       <CardMedia
                         component="img"
                         height="150"
-                        image={product.image}
+                        image={product.image} // 수정 7: getImageSrc 이미 적용됨
                         alt={product.name}
                         sx={{ objectFit: "contain", borderBottom: "1px solid #eee" }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 8: 대체 이미지 경로 변경
+                        }}
                       />
                       <CardContent sx={{ textAlign: "center" }}>
                         <Typography

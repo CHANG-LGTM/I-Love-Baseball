@@ -49,6 +49,9 @@ interface BrandCount {
   count: number;
 }
 
+// 백엔드 이미지 API 기본 URL (수정 1: BASE_IMAGE_URL 추가)
+const BASE_IMAGE_URL = "http://localhost:8092/uploads/";
+
 export default function ProductCategory() {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
@@ -61,6 +64,27 @@ export default function ProductCategory() {
   const [sortOption, setSortOption] = useState<string>("all");
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [brands, setBrands] = useState<BrandCount[]>([{ brand: "all", count: 0 }]);
+
+  // 수정 2: getImageSrc 함수 추가
+  const getImageSrc = (image: string | undefined): string => {
+    if (!image) {
+      return "/path/to/fallback-image.jpg"; // 기본 대체 이미지 경로
+    }
+    console.log("product.image:", image); // 디버깅용 출력
+    if (image.startsWith("data:image")) {
+      return image;
+    }
+    if (image.startsWith("http://") || image.startsWith("https://")) {
+      return image; // 기존 DB 이미지 유지
+    }
+    // 전체 경로에서 파일 이름만 추출
+    const fileName = image.split("/").pop();
+    // 파일 이름을 URL 인코딩
+    const encodedFileName = encodeURIComponent(fileName || "");
+    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
+    console.log("Generated image URL:", imageUrl); // 디버깅용 출력
+    return imageUrl;
+  };
 
   const fetchData = async () => {
     setPageLoading(true);
@@ -93,7 +117,8 @@ export default function ProductCategory() {
 
       const responseProducts: Product[] = productsResponse.data.map((item: any) => ({
         ...item,
-        image: item.image || "https://placehold.co/300x200",
+        // 수정 3: 기본 이미지 경로 제거 및 getImageSrc 사용
+        image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
         brand: item.brand || "Unknown",
       }));
 
@@ -160,7 +185,8 @@ export default function ProductCategory() {
 
           const responseProducts: Product[] = productsResponse.data.map((item: any) => ({
             ...item,
-            image: item.image || "https://placehold.co/300x200",
+            // 수정 4: 필터링된 상품에도 getImageSrc 적용
+            image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
             brand: item.brand || "Unknown",
           }));
 
@@ -239,7 +265,7 @@ export default function ProductCategory() {
           productId: item.productId,
           name: item.name || "상품명 없음",
           price: item.price || 0,
-          image: item.image || "https://placehold.co/300x200",
+          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg", // 수정 5: 장바구니 이미지에도 getImageSrc 적용
           quantity: item.quantity || 1,
         }));
         setCartItems(formattedItems);
@@ -305,7 +331,7 @@ export default function ProductCategory() {
           productId: item.productId,
           name: item.name || "상품명 없음",
           price: item.price || 0,
-          image: item.image || "https://placehold.co/300x200",
+          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg", // 수정 6: 초기 장바구니 데이터에도 getImageSrc 적용
           quantity: item.quantity || 1,
         }));
         setCartItems(formattedItems);
@@ -431,11 +457,11 @@ export default function ProductCategory() {
                       <CardMedia
                         component="img"
                         height="200"
-                        image={product.image || "https://placehold.co/300x200"}
+                        image={product.image} // 수정 7: getImageSrc 이미 적용됨
                         alt={product.name}
                         sx={{ objectFit: "contain" }}
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x200";
+                          (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 8: 대체 이미지 경로 변경
                         }}
                         onClick={() => navigate(`/product/${product.id}`)}
                       />

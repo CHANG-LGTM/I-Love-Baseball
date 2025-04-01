@@ -41,19 +41,28 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // 공개 엔드포인트
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-auth").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-auth","/api/auth/check-role","/api/auth/logout").permitAll()
                         .requestMatchers("/login/oauth2/**", "/oauth2/authorize/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+
+
                         // 상품 조회는 누구나 가능
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
                         // 상품 수정, 삭제는 인증된 사용자만 가능 (필요 시 추가 권한 설정 가능)
                         .requestMatchers(HttpMethod.POST, "/api/products/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
+
+                        .requestMatchers(HttpMethod.POST, "/api/reviews/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/reviews/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/reviews/**").authenticated()
                         // 관리자 전용 엔드포인트
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 인증된 사용자만 접근 가능
                         .requestMatchers("/api/cart/**").authenticated()
+
                         .requestMatchers("/api/orders/**").authenticated()
                         .requestMatchers("/api/payments/**").authenticated()
                         .anyRequest().authenticated()

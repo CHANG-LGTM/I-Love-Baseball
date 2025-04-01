@@ -38,6 +38,9 @@ interface CartItem {
   quantity: number;
 }
 
+// 수정 1: BASE_IMAGE_URL 추가
+const BASE_IMAGE_URL = "http://localhost:8092/uploads/";
+
 export default function MainPage() {
   const [products, setProducts] = useState<DiscountedProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +49,27 @@ export default function MainPage() {
   const [filterCategory, setFilterCategory] = useState<string>("전체");
   const [pageLoading, setPageLoading] = useState<boolean>(true);
   const navigate = useNavigate();
+
+  // 수정 2: getImageSrc 함수 추가
+  const getImageSrc = (image: string | undefined): string => {
+    if (!image) {
+      return "/path/to/fallback-image.jpg"; // 기본 대체 이미지 경로
+    }
+    console.log("product.image:", image); // 디버깅용 출력
+    if (image.startsWith("data:image")) {
+      return image;
+    }
+    if (image.startsWith("http://") || image.startsWith("https://")) {
+      return image; // 기존 DB 이미지 유지
+    }
+    // 전체 경로에서 파일 이름만 추출
+    const fileName = image.split("/").pop();
+    // 파일 이름을 URL 인코딩
+    const encodedFileName = encodeURIComponent(fileName || "");
+    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
+    console.log("Generated image URL:", imageUrl); // 디버깅용 출력
+    return imageUrl;
+  };
 
   // 페이지 로드 시 상품 데이터 가져오기
   useEffect(() => {
@@ -59,7 +83,8 @@ export default function MainPage() {
         if (Array.isArray(res.data)) {
           const formattedProducts = res.data.map((item: any) => ({
             ...item,
-            image: item.image || "https://placehold.co/300x200",
+            // 수정 3: getImageSrc 함수 적용
+            image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
             category: item.category || "unknown",
           }));
           setProducts(formattedProducts);
@@ -276,11 +301,11 @@ export default function MainPage() {
                   <CardMedia
                     component="img"
                     height="200"
-                    image={product.image}
+                    image={product.image} // 수정 4: getImageSrc 이미 적용됨
                     alt={product.name}
                     sx={{ objectFit: "contain" }}
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = "https://via.placeholder.com/300x200";
+                      (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 5: 대체 이미지 경로 변경
                     }}
                   />
                   <CardContent

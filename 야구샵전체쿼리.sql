@@ -46,7 +46,6 @@ CREATE TABLE cart_items (
 CREATE TABLE orders (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    order_id varchar(255) NOT NULL,
     amount INT NOT NULL,
     order_name VARCHAR(255) NOT NULL,
     customer_name VARCHAR(100) NOT NULL,

@@ -4,6 +4,9 @@ import SportsBaseballIcon from "@mui/icons-material/SportsBaseball";
 import SportsHandballIcon from "@mui/icons-material/SportsHandball";
 import SportsMmaIcon from "@mui/icons-material/SportsMma";
 import InventoryIcon from "@mui/icons-material/Inventory";
+import RateReviewIcon from "@mui/icons-material/RateReview"; // 리뷰 아이콘
+import PersonIcon from "@mui/icons-material/Person"; // 마이페이지 아이콘
+import LocalShippingIcon from "@mui/icons-material/LocalShipping"; // 배송 아이콘
 import {
   AppBar,
   Box,
@@ -18,26 +21,17 @@ import {
   Typography,
 } from "@mui/material";
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../AdminPage/AuthContext"
+import { useAuth } from "../AdminPage/AuthContext";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { nickname, setNickname, isAdmin, setIsAdmin, checkAuth } = useAuth();
+  const { nickname, setNickname, isAdmin, setIsAdmin, loading } = useAuth(); // checkAuth 제거, loading 추가
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const initialize = async () => {
-      setLoading(true);
-      await checkAuth();
-      setLoading(false);
-    };
-    initialize();
-  }, [checkAuth, location.pathname]);
-
+  // useEffect에서 checkAuth 호출 제거
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);
@@ -74,6 +68,7 @@ export default function Navbar() {
     navigate("/");
   };
 
+  // AuthProvider의 loading 상태 활용
   if (loading) {
     return (
       <AppBar position="fixed" color="primary">
@@ -98,119 +93,150 @@ export default function Navbar() {
           </Link>
         </Typography>
 
-        {nickname ? (
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <Typography variant="body1" sx={{ marginRight: 2, color: "white" }}>
-              {nickname}님 환영합니다!
-            </Typography>
-            {isAdmin ? (
-              <>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/admin/products"
-                  startIcon={<InventoryIcon />}
-                >
-                  상품 관리
-                </Button>
-                <Button color="inherit" onClick={handleOpenDialog}>
-                  로그아웃
-                </Button>
-              </>
-            ) : (
-              <>
-                <IconButton color="inherit" component={Link} to="/cart" sx={{ marginLeft: 2 }}>
-                  <ShoppingCartIcon />
-                </IconButton>
-                <Button color="inherit" component={Link} to="/bats" startIcon={<SportsBaseballIcon />}>
-                  야구배트
-                </Button>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/batting-gloves"
-                  startIcon={<SportsMmaIcon />}
-                >
-                  배팅장갑
-                </Button>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/protection"
-                  startIcon={<HealthAndSafetyIcon />}
-                >
-                  보호장비
-                </Button>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/gloves"
-                  startIcon={<SportsHandballIcon />}
-                >
-                  글러브
-                </Button>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/shoes"
-                  startIcon={<SportsHandballIcon />}
-                >
-                  야구화
-                </Button>
-                <Button color="inherit" onClick={handleOpenDialog}>
-                  로그아웃
-                </Button>
-              </>
-            )}
-          </Box>
-        ) : (
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <Button color="inherit" component={Link} to="/login">
-              로그인
-            </Button>
-            <Button color="inherit" component={Link} to="/register">
-              회원가입
-            </Button>
-            <IconButton color="inherit" component={Link} to="/cart" sx={{ marginLeft: 2 }}>
-              <ShoppingCartIcon />
-            </IconButton>
-            <Button color="inherit" component={Link} to="/bats" startIcon={<SportsBaseballIcon />}>
-              야구배트
-            </Button>
-            <Button
-              color="inherit"
-              component={Link}
-              to="/batting-gloves"
-              startIcon={<SportsMmaIcon />}
-            >
-              배팅장갑
-            </Button>
-            <Button
-              color="inherit"
-              component={Link}
-              to="/protection"
-              startIcon={<HealthAndSafetyIcon />}
-            >
-              보호장비
-            </Button>
-            <Button
-              color="inherit"
-              component={Link}
-              to="/gloves"
-              startIcon={<SportsHandballIcon />}
-            >
-              글러브
-            </Button>
-            <Button
-              color="inherit"
-              component={Link}
-              to="/shoes"
-              startIcon={<SportsHandballIcon />}
-            >
-              야구화
-            </Button>
-          </Box>
-        )}
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          {nickname ? (
+            <>
+              <Typography variant="body1" sx={{ marginRight: 2, color: "white" }}>
+                {nickname}님 환영합니다!
+              </Typography>
+              {isAdmin ? (
+                <>
+                  <Button
+                    color="inherit"
+                    component={Link}
+                    to="/admin/products"
+                    startIcon={<InventoryIcon />}
+                  >
+                    상품 관리
+                  </Button>
+                  <Button
+                    color="inherit"
+                    component={Link}
+                    to="/admin/reviews"
+                    startIcon={<RateReviewIcon />}
+                  >
+                    리뷰 관리
+                  </Button>
+                  <Button
+                    color="inherit"
+                    component={Link}
+                    to="/admin/shipping"
+                    startIcon={<LocalShippingIcon />}
+                  >
+                    배송 관리
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    color="inherit"
+                    component={Link}
+                    to="/mypage"
+                    startIcon={<PersonIcon />}
+                  >
+                    마이페이지
+                  </Button>
+                  <Button
+                    color="inherit"
+                    component={Link}
+                    to="/review-list"
+                    startIcon={<RateReviewIcon />}
+                  >
+                    구매후기
+                  </Button>
+                </>
+              )}
+              <IconButton color="inherit" component={Link} to="/cart" sx={{ marginLeft: 2 }}>
+                <ShoppingCartIcon />
+              </IconButton>
+              <Button color="inherit" component={Link} to="/bats" startIcon={<SportsBaseballIcon />}>
+                야구배트
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/batting-gloves"
+                startIcon={<SportsMmaIcon />}
+              >
+                배팅장갑
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/protection"
+                startIcon={<HealthAndSafetyIcon />}
+              >
+                보호장비
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/gloves"
+                startIcon={<SportsHandballIcon />}
+              >
+                글러브
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/shoes"
+                startIcon={<SportsHandballIcon />}
+              >
+                야구화
+              </Button>
+              <Button color="inherit" onClick={handleOpenDialog}>
+                로그아웃
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button color="inherit" component={Link} to="/login">
+                로그인
+              </Button>
+              <Button color="inherit" component={Link} to="/register">
+                회원가입
+              </Button>
+              <IconButton color="inherit" component={Link} to="/cart" sx={{ marginLeft: 2 }}>
+                <ShoppingCartIcon />
+              </IconButton>
+              <Button color="inherit" component={Link} to="/bats" startIcon={<SportsBaseballIcon />}>
+                야구배트
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/batting-gloves"
+                startIcon={<SportsMmaIcon />}
+              >
+                배팅장갑
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/protection"
+                startIcon={<HealthAndSafetyIcon />}
+              >
+                보호장비
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/gloves"
+                startIcon={<SportsHandballIcon />}
+              >
+                글러브
+              </Button>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/shoes"
+                startIcon={<SportsHandballIcon />}
+              >
+                야구화
+              </Button>
+            </>
+          )}
+        </Box>
 
         <Dialog
           open={open}
