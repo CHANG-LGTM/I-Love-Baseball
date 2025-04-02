@@ -1,9 +1,21 @@
 -- 기존 테이블 삭제 (필요 시)
 DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS review_comments;
 DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS products;
-DROP TABLE IF EXISTS users;
+
+
+
+
+
+
+
+
+
+
 
 -- users 테이블 생성 (이미 존재하지 않는 경우)
 CREATE TABLE users (
@@ -58,6 +70,7 @@ CREATE TABLE orders (
     FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
+
 -- order_items 테이블 생성
 CREATE TABLE order_items (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -68,6 +81,37 @@ CREATE TABLE order_items (
     FOREIGN KEY (order_id) REFERENCES orders(id),
     FOREIGN KEY (product_id) REFERENCES products(id)
 ) ENGINE=InnoDB;
+
+
+-- reviews 테이블 생성
+CREATE TABLE reviews (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    nickname VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    image_url VARCHAR(255), -- imageUrl 필드 추가
+    rating INT NOT NULL, -- rating 필드 추가 (1~5)
+    product_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reviews_product_id
+        FOREIGN KEY (product_id) REFERENCES products (id)
+        ON DELETE CASCADE
+);
+-- review_comments 테이블 생성 (Review와 1:N 관계)
+CREATE TABLE review_comments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    review_id BIGINT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_review_comments_review_id
+        FOREIGN KEY (review_id) REFERENCES reviews (id)
+        ON DELETE CASCADE
+);
+
+
+
+
 
 -- 인덱스 추가 (조회 성능 최적화)
 CREATE INDEX idx_category ON products (category);

@@ -107,4 +107,4 @@ public class ReviewController {
 
     record DeleteRequest(String nickname, Boolean isAdmin) {}
     record CommentRequest(String content) {}
-}       
+}
