@@ -17,7 +17,7 @@ import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 interface Product {
   id: number;
@@ -32,6 +32,13 @@ interface Product {
   discountPercent?: number | null;
 }
 
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,13 +48,13 @@ export default function ProductDetail() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [cart, setCart] = useState<number[]>([]);
   const [quantity, setQuantity] = useState(1);
-  const [totalPrice, setTotalPrice] = useState(0); // 총 가격 상태 추가
+  const [totalPrice, setTotalPrice] = useState(0);
   const [selectedTab, setSelectedTab] = useState(0);
 
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        await axios.get("http://localhost:8092/api/auth/check-auth", {
+        await axios.get(`${API_BASE_URL}/api/auth/check-auth`, {
           withCredentials: true,
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
@@ -55,7 +62,7 @@ export default function ProductDetail() {
         });
         setIsLoggedIn(true);
       } catch (err) {
-        console.error("인증 상태 확인 실패:", err);
+        console.log(err)
         setIsLoggedIn(false);
       }
     };
@@ -63,21 +70,24 @@ export default function ProductDetail() {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`http://localhost:8092/api/products/${id}`);
-        const fetchedProduct = {
+        const res = await axios.get<Product>(`${API_BASE_URL}/api/products/${id}`);
+        const fetchedProduct: Product = {
           ...res.data,
           image: res.data.image || "https://placehold.co/300x200",
         };
         setProduct(fetchedProduct);
-        // 초기 총 가격 설정
         const initialPrice = fetchedProduct.discounted
           ? calculateDiscountedPrice(fetchedProduct.originalPrice, fetchedProduct.discountPercent)
           : fetchedProduct.price;
         setTotalPrice(initialPrice * quantity);
         setError(null);
       } catch (err) {
-        console.error("상품 상세 불러오기 오류:", err);
-        setError("상품 정보를 불러오는데 실패했습니다.");
+        const axiosError = err as AxiosError<ApiErrorResponse>;
+        setError(
+          axiosError.response?.data?.message || 
+          axiosError.response?.data?.error || 
+          "상품 정보를 불러오는데 실패했습니다."
+        );
       } finally {
         setLoading(false);
       }
@@ -85,7 +95,7 @@ export default function ProductDetail() {
 
     checkAuthStatus();
     fetchProduct();
-  }, [id]);
+  }, [id, quantity]);
 
   const toggleCart = () => {
     if (isLoggedIn === null) {
@@ -100,12 +110,11 @@ export default function ProductDetail() {
     }
     if (product) {
       if (cart.includes(product.id)) {
-        setCart(cart.filter((id) => id !== product.id));
-        alert(`${product.id}번 상품이 장바구니에서 제거되었습니다.`);
+        setCart(cart.filter((cartId) => cartId !== product.id));
+        alert(`${product.name} 상품이 장바구니에서 제거되었습니다.`);
       } else {
         setCart([...cart, product.id]);
-        console.log(`장바구니에 추가: 상품 ID ${product.id}, 수량: ${quantity}, 총 가격: ${totalPrice}원`);
-        alert(`${product.id}번 상품이 장바구니에 추가되었습니다! (수량: ${quantity})`);
+        alert(`${product.name} 상품이 장바구니에 추가되었습니다! (수량: ${quantity})`);
       }
     }
   };
@@ -122,12 +131,29 @@ export default function ProductDetail() {
       return;
     }
     if (product) {
-      console.log(`구매: 상품 ID ${product.id}, 수량: ${quantity}, 총 가격: ${totalPrice}원`);
-      alert(`${product.id}번 상품 구매 페이지로 이동합니다! (수량: ${quantity})`);
+      navigate("/purchase", {
+        state: {
+          cartItems: [
+            {
+              id: product.id,
+              productId: product.id,
+              name: product.name,
+              price: product.discounted
+                ? calculateDiscountedPrice(product.originalPrice, product.discountPercent)
+                : product.price,
+              image: product.image,
+              quantity,
+            },
+          ],
+        },
+      });
     }
   };
 
-  const calculateDiscountedPrice = (originalPrice: number, discountPercent: number) => {
+  const calculateDiscountedPrice = (
+    originalPrice?: number | null, 
+    discountPercent?: number | null
+  ): number => {
     if (!originalPrice || !discountPercent) return originalPrice || 0;
     return Math.round(originalPrice * (1 - discountPercent / 100));
   };
@@ -137,7 +163,6 @@ export default function ProductDetail() {
       const newQuantity = prev + change;
       if (newQuantity < 1) return 1;
       if (product && newQuantity > product.stock) return product.stock;
-      // 총 가격 업데이트
       if (product) {
         const unitPrice = product.discounted
           ? calculateDiscountedPrice(product.originalPrice, product.discountPercent)
@@ -149,10 +174,9 @@ export default function ProductDetail() {
   };
 
   const handleQuantityInputChange = (value: string) => {
-    const newQuantity = parseInt(value);
+    const newQuantity = parseInt(value, 10);
     if (!isNaN(newQuantity) && newQuantity >= 1 && product && newQuantity <= product.stock) {
       setQuantity(newQuantity);
-      // 총 가격 업데이트
       if (product) {
         const unitPrice = product.discounted
           ? calculateDiscountedPrice(product.originalPrice, product.discountPercent)
@@ -198,22 +222,6 @@ export default function ProductDetail() {
                 (e.target as HTMLImageElement).src = "https://via.placeholder.com/600x600";
               }}
             />
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <CardMedia
-                component="img"
-                image={product.image}
-                alt="Thumbnail"
-                sx={{
-                  width: 80,
-                  height: 80,
-                  objectFit: "contain",
-                  borderRadius: "4px",
-                  border: "2px solid",
-                  borderColor: "primary.main",
-                  cursor: "pointer",
-                }}
-              />
-            </Box>
           </Box>
         </Grid>
 
@@ -242,7 +250,6 @@ export default function ProductDetail() {
           <Typography variant="h4" color="primary" sx={{ mb: 1 }}>
             {displayPrice.toLocaleString()}원
           </Typography>
-          {/* 총 금액 표시 */}
           <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>
             총 금액: {totalPrice.toLocaleString()}원
           </Typography>
@@ -319,7 +326,7 @@ export default function ProductDetail() {
                 )
               }
             >
-              장바구니 담기
+              {cart.includes(product.id) ? "장바구니 제거" : "장바구니 담기"}
             </Button>
           </Box>
 

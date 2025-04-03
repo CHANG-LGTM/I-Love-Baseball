@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Container,
@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 interface Product {
   id: number;
@@ -49,8 +49,13 @@ interface BrandCount {
   count: number;
 }
 
-// 백엔드 이미지 API 기본 URL (수정 1: BASE_IMAGE_URL 추가)
-const BASE_IMAGE_URL = "http://localhost:8092/uploads/";
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const BASE_IMAGE_URL = `${API_BASE_URL}/uploads/`;
 
 export default function ProductCategory() {
   const { category } = useParams<{ category: string }>();
@@ -64,61 +69,45 @@ export default function ProductCategory() {
   const [sortOption, setSortOption] = useState<string>("all");
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [brands, setBrands] = useState<BrandCount[]>([{ brand: "all", count: 0 }]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // 수정 2: getImageSrc 함수 추가
-  const getImageSrc = (image: string | undefined): string => {
-    if (!image) {
-      return "/path/to/fallback-image.jpg"; // 기본 대체 이미지 경로
-    }
-    console.log("product.image:", image); // 디버깅용 출력
-    if (image.startsWith("data:image")) {
+  const getImageSrc = useCallback((image: string | undefined): string => {
+    if (!image) return "/path/to/fallback-image.jpg";
+    if (image.startsWith("data:image") || image.startsWith("http")) {
       return image;
     }
-    if (image.startsWith("http://") || image.startsWith("https://")) {
-      return image; // 기존 DB 이미지 유지
-    }
-    // 전체 경로에서 파일 이름만 추출
-    const fileName = image.split("/").pop();
-    // 파일 이름을 URL 인코딩
-    const encodedFileName = encodeURIComponent(fileName || "");
-    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
-    console.log("Generated image URL:", imageUrl); // 디버깅용 출력
-    return imageUrl;
-  };
+    const fileName = image.split("/").pop() || "";
+    return `${BASE_IMAGE_URL}${encodeURIComponent(fileName)}`;
+  }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setPageLoading(true);
     setError(null);
-    setProducts([]); // 이전 데이터 초기화
-    setBrands([{ brand: "all", count: 0 }]); // 브랜드 목록 초기화
+    setProducts([]);
+    setBrands([{ brand: "all", count: 0 }]);
 
     const token = localStorage.getItem("token") || "";
 
     try {
       const [brandsResponse, productsResponse] = await Promise.all([
-        axios.get(`http://localhost:8092/api/products/brands/${category}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        axios.get<BrandCount[]>(`${API_BASE_URL}/api/products/brands/${category}`, {
+          headers: { Authorization: `Bearer ${token}` },
         }),
-        axios.get(`http://localhost:8092/api/products/category/${category}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        axios.get<Product[]>(`${API_BASE_URL}/api/products/category/${category}`, {
+          headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
 
-      const fetchedBrands: BrandCount[] = brandsResponse.data || [];
-      const updatedBrands =
-        fetchedBrands.length > 0
-          ? [{ brand: "all", count: productsResponse.data.length }, ...fetchedBrands]
-          : [{ brand: "all", count: 0 }];
+      const fetchedBrands = brandsResponse.data || [];
+      const updatedBrands = [
+        { brand: "all", count: productsResponse.data.length },
+        ...fetchedBrands,
+      ];
       setBrands(updatedBrands);
 
-      const responseProducts: Product[] = productsResponse.data.map((item: any) => ({
+      const responseProducts = productsResponse.data.map((item) => ({
         ...item,
-        // 수정 3: 기본 이미지 경로 제거 및 getImageSrc 사용
-        image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
+        image: getImageSrc(item.image),
         brand: item.brand || "Unknown",
       }));
 
@@ -128,76 +117,72 @@ export default function ProductCategory() {
         setError("해당 카테고리에 상품이 없습니다.");
       }
     } catch (err) {
-      console.error("데이터 불러오기 오류:", err);
-      setError("상품 목록을 불러오는 데 실패했습니다. 다시 시도해 주세요.");
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      setError(
+        axiosError.response?.data?.message || 
+        axiosError.response?.data?.error || 
+        "상품 목록을 불러오는 데 실패했습니다."
+      );
       setBrands([{ brand: "all", count: 0 }]);
       setProducts([]);
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [category, getImageSrc]);
 
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
         const token = localStorage.getItem("token") || "";
-        await axios.get("http://localhost:8092/api/auth/check-auth", {
+        await axios.get(`${API_BASE_URL}/api/auth/check-auth`, {
           withCredentials: true,
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-        const nickname = localStorage.getItem("nickname");
-        if (!nickname) {
-          throw new Error("Nickname not found in localStorage");
-        }
-      } catch (err) {
-        console.error("인증 상태 확인 실패:", err);
+      } catch {
         localStorage.removeItem("nickname");
       }
     };
 
     setBrandFilter("all");
-    setCurrentPage(1); // 카테고리 변경 시 페이지 초기화
+    setCurrentPage(1);
     checkAuthStatus().then(fetchData);
-  }, [category]);
+  }, [category, fetchData]);
 
   useEffect(() => {
     if (brandFilter === "all") {
-      fetchData(); // "전체" 선택 시 모든 상품을 다시 불러옴
+      fetchData();
     } else {
       const fetchFilteredProducts = async () => {
         setPageLoading(true);
         setError(null);
-        setProducts([]); // 이전 데이터 초기화
+        setProducts([]);
 
         const token = localStorage.getItem("token") || "";
 
         try {
-          const productsResponse = await axios.get(
-            `http://localhost:8092/api/products/category/${category}?brand=${brandFilter}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
+          const productsResponse = await axios.get<Product[]>(
+            `${API_BASE_URL}/api/products/category/${category}?brand=${brandFilter}`,
+            { headers: { Authorization: `Bearer ${token}` } }
           );
 
-          const responseProducts: Product[] = productsResponse.data.map((item: any) => ({
+          const responseProducts = productsResponse.data.map((item) => ({
             ...item,
-            // 수정 4: 필터링된 상품에도 getImageSrc 적용
-            image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
+            image: getImageSrc(item.image),
             brand: item.brand || "Unknown",
           }));
 
           setProducts(responseProducts);
 
           if (responseProducts.length === 0) {
-            setError(`선택한 브랜드(${brandFilter})의 상품이 없습니다. 다른 브랜드를 선택해 주세요.`);
+            setError(`선택한 브랜드(${brandFilter})의 상품이 없습니다.`);
           }
         } catch (err) {
-          console.error("브랜드 필터링 상품 불러오기 오류:", err);
-          setError("상품 목록을 불러오는 데 실패했습니다. 다시 시도해 주세요.");
+          const axiosError = err as AxiosError<ApiErrorResponse>;
+          setError(
+            axiosError.response?.data?.message || 
+            axiosError.response?.data?.error || 
+            "상품 목록을 불러오는 데 실패했습니다."
+          );
           setProducts([]);
         } finally {
           setPageLoading(false);
@@ -206,7 +191,35 @@ export default function ProductCategory() {
 
       fetchFilteredProducts();
     }
-  }, [brandFilter, category]);
+  }, [brandFilter, category, getImageSrc]);
+
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      try {
+        const res = await axios.get<CartItem[]>(`${API_BASE_URL}/api/cart`, {
+          withCredentials: true,
+        });
+        const formattedItems = res.data.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.name || "상품명 없음",
+          price: item.price || 0,
+          image: getImageSrc(item.image),
+          quantity: item.quantity || 1,
+        }));
+        setCartItems(formattedItems);
+        setCart(formattedItems.map((item) => item.productId));
+      } catch (err) {
+        const axiosError = err as AxiosError<ApiErrorResponse>;
+        setError(
+          axiosError.response?.data?.message || 
+          axiosError.response?.data?.error || 
+          "장바구니 데이터를 불러오는 데 실패했습니다"
+        );
+      }
+    };
+    fetchCartItems();
+  }, [getImageSrc]);
 
   const sortedProducts = useMemo(() => {
     const sorted = [...products];
@@ -238,42 +251,41 @@ export default function ProductCategory() {
     }
     try {
       if (cart.includes(productId)) {
-        // 장바구니에서 제거
         const cartItem = cartItems.find((item) => item.productId === productId);
         if (cartItem) {
-          await axios.delete(`http://localhost:8092/api/cart/remove/${cartItem.id}`, {
+          await axios.delete(`${API_BASE_URL}/api/cart/remove/${cartItem.id}`, {
             withCredentials: true,
           });
           setCart(cart.filter((id) => id !== productId));
           setCartItems(cartItems.filter((item) => item.productId !== productId));
-          alert(`${productId}번 상품이 장바구니에서 제거되었습니다!`);
         }
       } else {
-        // 장바구니에 추가
         await axios.post(
-          "http://localhost:8092/api/cart/add",
+          `${API_BASE_URL}/api/cart/add`,
           { productId },
           { withCredentials: true }
         );
-        setCart([...cart, productId]);
-        // 장바구니 데이터를 다시 가져와서 상태 업데이트
-        const res = await axios.get("http://localhost:8092/api/cart", {
+        const res = await axios.get<CartItem[]>(`${API_BASE_URL}/api/cart`, {
           withCredentials: true,
         });
-        const formattedItems: CartItem[] = res.data.map((item: any) => ({
+        const formattedItems = res.data.map((item) => ({
           id: item.id,
           productId: item.productId,
           name: item.name || "상품명 없음",
           price: item.price || 0,
-          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg", // 수정 5: 장바구니 이미지에도 getImageSrc 적용
+          image: getImageSrc(item.image),
           quantity: item.quantity || 1,
         }));
         setCartItems(formattedItems);
-        alert(`${productId}번 상품이 장바구니에 추가되었습니다!`);
+        setCart([...cart, productId]);
       }
     } catch (err) {
-      console.error("장바구니 처리 실패:", err.response?.data || err.message);
-      alert("장바구니 처리에 실패했습니다.");
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      alert(
+        axiosError.response?.data?.message || 
+        axiosError.response?.data?.error || 
+        "장바구니 처리 중 오류가 발생했습니다."
+      );
     }
   };
 
@@ -288,7 +300,6 @@ export default function ProductCategory() {
       return;
     }
 
-    // 선택한 상품을 CartItem 형식으로 변환
     const cartItem: CartItem = {
       id: product.id,
       productId: product.id,
@@ -297,51 +308,25 @@ export default function ProductCategory() {
         ? calculateDiscountedPrice(product.originalPrice, product.discountPercent)
         : product.price,
       image: product.image,
-      quantity: 1, // 기본 수량 1로 설정
+      quantity: 1,
     };
 
-    // /checkout으로 이동하며 선택한 상품 정보를 state로 전달
-    navigate("/checkout", { state: { cartItems: [cartItem] } });
+    navigate("/purchase", { state: { cartItems: [cartItem] } });
   };
 
-  const calculateDiscountedPrice = (originalPrice: number | undefined, discountPercent: number | undefined) => {
+  const calculateDiscountedPrice = (
+    originalPrice?: number | null, 
+    discountPercent?: number | null
+  ): number => {
     if (!originalPrice || !discountPercent) return originalPrice || 0;
     return Math.round(originalPrice * (1 - discountPercent / 100));
   };
 
   useEffect(() => {
-    setCurrentPage(1); // 정렬 옵션이나 브랜드 필터 변경 시 페이지 초기화
+    setCurrentPage(1);
   }, [sortOption, brandFilter]);
 
-  // 상품 개수에 따라 justifyContent 동적으로 설정
   const gridJustifyContent = displayedProducts.length <= 3 ? "center" : "flex-start";
-
-  // 장바구니 상태를 관리하기 위한 상태 추가
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-
-  // 페이지 로드 시 장바구니 데이터 가져오기
-  useEffect(() => {
-    const fetchCartItems = async () => {
-      try {
-        const res = await axios.get("http://localhost:8092/api/cart", {
-          withCredentials: true,
-        });
-        const formattedItems: CartItem[] = res.data.map((item: any) => ({
-          id: item.id,
-          productId: item.productId,
-          name: item.name || "상품명 없음",
-          price: item.price || 0,
-          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg", // 수정 6: 초기 장바구니 데이터에도 getImageSrc 적용
-          quantity: item.quantity || 1,
-        }));
-        setCartItems(formattedItems);
-        setCart(formattedItems.map((item) => item.productId));
-      } catch (err) {
-        console.error("장바구니 데이터 가져오기 실패:", err.response?.data || err.message);
-      }
-    };
-    fetchCartItems();
-  }, []);
 
   return (
     <Container maxWidth="lg" sx={{ textAlign: "center", mt: 15 }}>
@@ -431,12 +416,7 @@ export default function ProductCategory() {
                     sm={6}
                     md={3}
                     key={product.id}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      minWidth: "250px",
-                    }}
+                    sx={{ display: "flex", justifyContent: "center", alignItems: "center", minWidth: "250px" }}
                   >
                     <Card
                       sx={{
@@ -446,10 +426,7 @@ export default function ProductCategory() {
                         flexDirection: "column",
                         justifyContent: "space-between",
                         transition: "all 0.3s",
-                        "&:hover": {
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          transform: "translateY(-4px)",
-                        },
+                        "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.1)", transform: "translateY(-4px)" },
                         borderRadius: 4,
                         cursor: "pointer",
                       }}
@@ -457,11 +434,11 @@ export default function ProductCategory() {
                       <CardMedia
                         component="img"
                         height="200"
-                        image={product.image} // 수정 7: getImageSrc 이미 적용됨
+                        image={product.image}
                         alt={product.name}
                         sx={{ objectFit: "contain" }}
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 8: 대체 이미지 경로 변경
+                          (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg";
                         }}
                         onClick={() => navigate(`/product/${product.id}`)}
                       />
@@ -563,11 +540,7 @@ export default function ProductCategory() {
                               variant="contained"
                               color="primary"
                               size="medium"
-                              sx={{
-                                fontSize: "20px",
-                                padding: "8px 20px",
-                                borderRadius: "8px",
-                              }}
+                              sx={{ fontSize: "20px", padding: "8px 20px", borderRadius: "8px" }}
                               onClick={(e) => handlePurchase(product, e)}
                             >
                               구매하기

@@ -15,16 +15,14 @@ import {
   Alert,
   Divider,
   Fade,
-  Rating, // 별점 컴포넌트 추가
+  Rating,
 } from "@mui/material";
 import { Edit, Delete, CameraAlt, Close } from "@mui/icons-material";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useAuth } from "../AdminPage/AuthContext";
 import { styled } from "@mui/material/styles";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-
-const BASE_IMAGE_URL = "http://localhost:8092/review_img/";
 
 interface Review {
   id: number;
@@ -34,7 +32,7 @@ interface Review {
   createdAt: string;
   updatedAt: string;
   comments?: ReviewComment[];
-  rating: number; // 별점 필드 추가
+  rating: number;
 }
 
 interface ReviewComment {
@@ -43,6 +41,16 @@ interface ReviewComment {
   createdAt: string;
   updatedAt: string;
 }
+
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+// 환경 변수 설정
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const REVIEW_IMAGE_BASE_URL = import.meta.env.VITE_APP_REVIEW_IMAGE_BASE_URL || "http://localhost:8092/review_img/";
+const FALLBACK_IMAGE = import.meta.env.VITE_APP_FALLBACK_IMAGE || "/images/ fallback-image.jpg";
 
 const StyledCard = styled(Card)(({ theme }) => ({
   marginBottom: theme.spacing(3),
@@ -112,84 +120,78 @@ export default function ReviewList() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const getImageSrc = (image: string | undefined): string => {
-    if (!image) {
-      return "/path/to/fallback-image.jpg";
-    }
-    console.log("review.imageUrl:", image);
-    if (
-      image.startsWith("data:image") ||
-      image.startsWith("http://") ||
-      image.startsWith("https://")
-    ) {
+    if (!image) return FALLBACK_IMAGE;
+    if (image.startsWith("data:image") || image.startsWith("http://") || image.startsWith("https://")) {
       return image;
     }
     const fileName = image.split("/").pop();
-    if (!fileName) {
-      return "/path/to/fallback-image.jpg";
-    }
-    const encodedFileName = encodeURIComponent(fileName);
-    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
-    console.log("Generated image URL:", imageUrl);
-    return imageUrl;
+    if (!fileName) return FALLBACK_IMAGE;
+    return `${REVIEW_IMAGE_BASE_URL}${encodeURIComponent(fileName)}`;
   };
 
   const fetchReviews = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get<Review[]>(
-        "http://localhost:8092/api/reviews",
-        {
-          withCredentials: true,
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
+      const response = await axios.get(`${API_BASE_URL}/api/reviews`, {
+        withCredentials: true,
+        headers: {
+          Accept: "application/json",
+        },
+      });
 
       let data: Review[] = [];
+
+      if (!response.data) {
+        setError("서버에서 데이터를 받지 못했습니다.");
+        setReviews([]);
+        return;
+      }
+
       if (Array.isArray(response.data)) {
         data = response.data;
       } else if (typeof response.data === "string") {
-        const cleanedData = response.data.trim();
-        console.log("Cleaned response.data:", cleanedData);
+        const dataAsString = response.data as string;
+        const trimmedData = dataAsString.trim();
+        if (trimmedData === "") {
+          setError("리뷰 데이터가 비어 있습니다.");
+          setReviews([]);
+          return;
+        }
         try {
-          data = JSON.parse(cleanedData);
-          if (!Array.isArray(data)) {
+          const parsedData = JSON.parse(trimmedData);
+          if (Array.isArray(parsedData)) {
+            data = parsedData;
+          } else {
             throw new Error("Parsed data is not an array");
           }
         } catch (parseError) {
-          setError("리뷰 데이터가 올바른 JSON 형식이 아닙니다.");
+          const errorMessage = parseError instanceof Error ? parseError.message : "알 수 없는 오류";
+          setError(`리뷰 데이터 파싱에 실패했습니다: ${errorMessage}`);
           setReviews([]);
-          setIsLoading(false);
           return;
         }
       } else {
-        setError("리뷰 데이터가 배열 형식이 아닙니다.");
+        setError("리뷰 데이터가 유효한 형식이 아닙니다.");
         setReviews([]);
-        setIsLoading(false);
         return;
       }
 
       const formattedReviews = data.map((review: Review) => ({
         ...review,
         comments: review.comments || [],
-        rating: review.rating || 0, // 별점이 없을 경우 기본값 0 설정
+        rating: review.rating || 0,
+        imageUrl: review.imageUrl ? getImageSrc(review.imageUrl) : undefined,
       }));
+
       setReviews(formattedReviews);
-    } catch (err: any) {
-      if (err.response) {
-        setError(
-          `리뷰를 불러오는 데 실패했습니다: ${err.response.status} - ${
-            err.response.data.message || err.response.statusText
-          }`
-        );
-      } else if (err.request) {
-        setError(
-          "서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요."
-        );
-      } else {
-        setError("리뷰를 불러오는 중 알 수 없는 오류가 발생했습니다.");
-      }
+      setError(null);
+    } catch (err) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        "리뷰를 불러오는 데 실패했습니다.";
+      setError(errorMessage);
       setReviews([]);
     } finally {
       setIsLoading(false);
@@ -197,8 +199,6 @@ export default function ReviewList() {
   };
 
   useEffect(() => {
-    console.log("페이지 렌더링 - useEffect, nickname:", nickname);
-    if (isLoading) return;
     fetchReviews();
   }, [nickname]);
 
@@ -249,8 +249,8 @@ export default function ReviewList() {
         formData.append("image", editImage);
       }
 
-      const response = await axios.put(
-        `http://localhost:8092/api/reviews/${id}`,
+      const response = await axios.put<Review>(
+        `${API_BASE_URL}/api/reviews/${id}`,
         formData,
         {
           headers: {
@@ -265,7 +265,9 @@ export default function ReviewList() {
         return;
       }
 
-      setReviews((prev) => prev.map((r) => (r.id === id ? response.data : r)));
+      setReviews((prev) =>
+        prev.map((r) => (r.id === id ? { ...response.data, imageUrl: getImageSrc(response.data.imageUrl) } : r))
+      );
       setEditingReviewId(null);
       setEditContent("");
       setEditImage(null);
@@ -273,8 +275,12 @@ export default function ReviewList() {
       setError(null);
       setSuccess("리뷰가 성공적으로 수정되었습니다.");
     } catch (err) {
-      console.error("리뷰 수정 실패:", err);
-      setError("리뷰 수정에 실패했습니다.");
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        "리뷰 수정에 실패했습니다.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -289,15 +295,19 @@ export default function ReviewList() {
 
     setIsLoading(true);
     try {
-      await axios.delete(`http://localhost:8092/api/reviews/${id}`, {
+      await axios.delete(`${API_BASE_URL}/api/reviews/${id}`, {
         data: { nickname, isAdmin: false },
         withCredentials: true,
       });
       setReviews((prev) => prev.filter((r) => r.id !== id));
       setSuccess("리뷰가 성공적으로 삭제되었습니다.");
     } catch (err) {
-      console.error("리뷰 삭제 실패:", err);
-      setError("리뷰 삭제에 실패했습니다.");
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        "리뷰 삭제에 실패했습니다.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -427,8 +437,7 @@ export default function ReviewList() {
                             src={editImagePreview}
                             alt="미리보기"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "/path/to/fallback-image.jpg";
+                              (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                             }}
                           />
                           <RemoveImageButton
@@ -572,8 +581,7 @@ export default function ReviewList() {
                                 boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
                               }}
                               onError={(e) => {
-                                (e.target as HTMLImageElement).src =
-                                  "/path/to/fallback-image.jpg";
+                                (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                               }}
                             />
                           </Box>

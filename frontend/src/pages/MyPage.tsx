@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AdminPage/AuthContext";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import {
   Box,
   Typography,
@@ -21,7 +21,7 @@ import {
   TableRow,
   CircularProgress,
   Alert,
-  Rating, // Rating 컴포넌트 추가
+  Rating,
 } from "@mui/material";
 import RateReviewIcon from "@mui/icons-material/RateReview";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
@@ -35,6 +35,13 @@ interface Review {
   createdAt: string;
 }
 
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+
 export default function MyPage() {
   const { nickname } = useAuth();
   const navigate = useNavigate();
@@ -43,57 +50,52 @@ export default function MyPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 로그인하지 않은 경우 로그인 페이지로 리다이렉트
   useEffect(() => {
     if (!nickname) {
       navigate("/login");
     }
   }, [nickname, navigate]);
 
-  // 리뷰 데이터를 가져오는 함수
   const fetchReviews = async () => {
     setLoading(true);
     setError(null);
     try {
-      // const token = localStorage.getItem("jwt");
-      // if (!token) {
-      //   throw new Error("JWT 토큰이 없습니다. 로그인이 필요합니다.");
-      // }
-      const response = await axios.get<Review[]>(
-        "http://localhost:8092/api/reviews/my-reviews",
-        {
-          // headers: {
-          //   Authorization: `Bearer ${token}`,
-          // },
-          withCredentials: true,
-        }
-      );
+      const response = await axios.get<Review[]>(`${API_BASE_URL}/api/reviews/my-reviews`, {
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+      });
       setReviews(response.data);
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (err) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      if (axiosError.response?.status === 401) {
         setError("로그인이 필요합니다.");
-        navigate("/login");
+        localStorage.removeItem("nickname");
+        localStorage.removeItem("token");
+        setTimeout(() => navigate("/login"), 1000);
       } else {
-        setError("리뷰를 불러오는 데 실패했습니다.");
-        console.error("리뷰 불러오기 실패:", err);
+        setError(
+          axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
+          "리뷰를 불러오는 데 실패했습니다. 나중에 다시 시도해주세요."
+        );
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // 리뷰 메뉴가 선택될 때마다 리뷰 데이터를 새로 가져오도록 설정
   useEffect(() => {
     if (selectedMenu === "reviews" && reviews.length === 0) {
       fetchReviews();
     }
   }, [selectedMenu]);
 
-  // 메뉴 항목 클릭 시 호출되는 핸들러
   const handleMenuClick = (menu: string, path: string) => {
     setSelectedMenu(menu);
     if (menu === "reviews") {
-      fetchReviews(); // 리뷰 메뉴 클릭 시 항상 최신 데이터 가져오기
+      fetchReviews();
     } else {
       navigate(path);
     }
@@ -101,7 +103,6 @@ export default function MyPage() {
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#ffffff", marginTop: 8 }}>
-      {/* 왼쪽 사이드바 */}
       <Drawer
         variant="permanent"
         sx={{
@@ -128,17 +129,16 @@ export default function MyPage() {
         <Divider />
         <List>
           <ListItem
-            button
-            selected={selectedMenu === "reviews"}
-            onClick={() => handleMenuClick("reviews", "/my-page")}
             sx={{
-              "&.Mui-selected": {
+              "&:hover": { bgcolor: "#f5f5f5" },
+              ...(selectedMenu === "reviews" && {
                 bgcolor: "#e3f2fd",
                 "&:hover": { bgcolor: "#bbdefb" },
-              },
-              "&:hover": { bgcolor: "#f5f5f5" },
+              }),
               py: 1.5,
+              cursor: "pointer",
             }}
+            onClick={() => handleMenuClick("reviews", "/my-page")}
           >
             <ListItemIcon>
               <RateReviewIcon color={selectedMenu === "reviews" ? "primary" : "inherit"} />
@@ -146,17 +146,16 @@ export default function MyPage() {
             <ListItemText primary="내가 작성한 리뷰 보기" />
           </ListItem>
           <ListItem
-            button
-            selected={selectedMenu === "shipping"}
-            onClick={() => handleMenuClick("shipping", "/shipping")}
             sx={{
-              "&.Mui-selected": {
+              "&:hover": { bgcolor: "#f5f5f5" },
+              ...(selectedMenu === "shipping" && {
                 bgcolor: "#e3f2fd",
                 "&:hover": { bgcolor: "#bbdefb" },
-              },
-              "&:hover": { bgcolor: "#f5f5f5" },
+              }),
               py: 1.5,
+              cursor: "pointer",
             }}
+            onClick={() => handleMenuClick("shipping", "/shipping")}
           >
             <ListItemIcon>
               <LocalShippingIcon color={selectedMenu === "shipping" ? "primary" : "inherit"} />
@@ -164,17 +163,16 @@ export default function MyPage() {
             <ListItemText primary="배송조회/현황" />
           </ListItem>
           <ListItem
-            button
-            selected={selectedMenu === "cart"}
-            onClick={() => handleMenuClick("cart", "/cart")}
             sx={{
-              "&.Mui-selected": {
+              "&:hover": { bgcolor: "#f5f5f5" },
+              ...(selectedMenu === "cart" && {
                 bgcolor: "#e3f2fd",
                 "&:hover": { bgcolor: "#bbdefb" },
-              },
-              "&:hover": { bgcolor: "#f5f5f5" },
+              }),
               py: 1.5,
+              cursor: "pointer",
             }}
+            onClick={() => handleMenuClick("cart", "/cart")}
           >
             <ListItemIcon>
               <ShoppingCartIcon color={selectedMenu === "cart" ? "primary" : "inherit"} />
@@ -184,15 +182,7 @@ export default function MyPage() {
         </List>
       </Drawer>
 
-      {/* 메인 콘텐츠 */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 4,
-          bgcolor: "#ffffff",
-        }}
-      >
+      <Box component="main" sx={{ flexGrow: 1, p: 4, bgcolor: "#ffffff" }}>
         <Paper
           elevation={3}
           sx={{

@@ -22,22 +22,27 @@ import {
   Grid,
   Card,
   CardContent,
+  SelectChangeEvent,
 } from "@mui/material";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { Product } from "../types/Product";
 import debounce from "lodash/debounce";
 
-// 카테고리 매핑 (영어 → 한국어)
-const categoryMap: { [key: string]: string } = {
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const BASE_IMAGE_URL = `${API_BASE_URL}/uploads/`;
+
+const categoryMap: Record<string, string> = {
   bats: "야구배트",
   "batting-gloves": "배팅장갑",
   protection: "보호장비",
   gloves: "글러브",
   shoes: "야구화",
 };
-
-// 백엔드 이미지 API 기본 URL
-const BASE_IMAGE_URL = "http://localhost:8092/uploads/";
 
 const AdminProductList: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -49,49 +54,52 @@ const AdminProductList: React.FC = () => {
   const [brandFilter, setBrandFilter] = useState<string>("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get("http://localhost:8092/api/admin/products", {
-          withCredentials: true,
-        });
-        console.log("Fetched products:", response.data); // 디버깅용 출력
-        setProducts(response.data);
-        setFilteredProducts(response.data);
-        setError(null);
-      } catch (err: unknown) {
-        console.error("상품 목록 불러오기 실패:", err);
-        setError("상품 목록을 불러오는데 실패했습니다.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get<Product[]>(`${API_BASE_URL}/api/admin/products`, {
+        withCredentials: true,
+      });
+      setProducts(response.data);
+      setFilteredProducts(response.data);
+      setError(null);
+    } catch (err) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      setError(
+        axiosError.response?.data?.message || 
+        axiosError.response?.data?.error || 
+        "상품 목록을 불러오는데 실패했습니다."
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // 디바운싱된 검색어 업데이트 함수
-  const debouncedSetSearchTerm = useCallback(
-    debounce((value: string) => {
-      setSearchTerm(value);
-    }, 300),
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const debouncedSetSearchTerm = useMemo(
+    () => debounce((value: string) => setSearchTerm(value), 300),
     []
   );
 
-  // 검색어 입력 핸들러
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    debouncedSetSearchTerm(e.target.value);
-  };
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      debouncedSetSearchTerm(e.target.value);
+    },
+    [debouncedSetSearchTerm]
+  );
 
-  // 필터링 로직 (useMemo로 최적화)
   const filtered = useMemo(() => {
     let result = products;
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       result = result.filter(
         (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.brand.toLowerCase().includes(searchTerm.toLowerCase())
+          product.name?.toLowerCase().includes(term) ||
+          product.brand?.toLowerCase().includes(term)
       );
     }
 
@@ -110,57 +118,65 @@ const AdminProductList: React.FC = () => {
     setFilteredProducts(filtered);
   }, [filtered]);
 
-  // 재고 및 총 재고 가격 계산
-  const totalStock = filteredProducts.reduce((sum, product) => sum + product.stock, 0);
-  const totalStockValue = filteredProducts.reduce(
-    (sum, product) => sum + product.stock * product.price,
-    0
+  const { totalStock, totalStockValue } = useMemo(() => {
+    return filteredProducts.reduce(
+      (acc, product) => ({
+        totalStock: acc.totalStock + (product.stock || 0),
+        totalStockValue: acc.totalStockValue + (product.stock || 0) * (product.price || 0),
+      }),
+      { totalStock: 0, totalStockValue: 0 }
+    );
+  }, [filteredProducts]);
+
+  const categories = useMemo(() => 
+    Array.from(new Set(products.map((product) => product.category).filter(Boolean))), 
+    [products]
   );
 
-  const categories = Array.from(new Set(products.map((product) => product.category)));
-  const brands = Array.from(new Set(products.map((product) => product.brand)));
+  const brands = useMemo(() => 
+    Array.from(new Set(products.map((product) => product.brand).filter(Boolean))), 
+    [products]
+  );
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = useCallback(async (id: number) => {
     if (window.confirm("정말로 이 상품을 삭제하시겠습니까?")) {
       try {
-        await axios.delete(`http://localhost:8092/api/admin/products/${id}`, {
+        await axios.delete(`${API_BASE_URL}/api/admin/products/${id}`, {
           withCredentials: true,
         });
-        setProducts(products.filter((product) => product.id !== id));
-      } catch (err: unknown) {
-        setError("상품 삭제에 실패했습니다.");
+        setProducts((prev) => prev.filter((product) => product.id !== id));
+      } catch (err) {
+        const axiosError = err as AxiosError<ApiErrorResponse>;
+        setError(
+          axiosError.response?.data?.message || 
+          "상품 삭제에 실패했습니다."
+        );
       }
     }
-  };
+  }, []);
 
-  // 이미지 URL을 결정하는 함수
-  const getImageSrc = (image: string | undefined): string => {
-    if (!image) {
-      return "";
-    }
-    console.log("product.image:", image); // 디버깅용 출력
-    if (image.startsWith("data:image")) {
+  const getImageSrc = useCallback((image?: string): string => {
+    if (!image) return "/path/to/fallback-image.jpg";
+    if (image.startsWith("data:image") || image.startsWith("http")) {
       return image;
     }
-    if (image.startsWith("http://") || image.startsWith("https://")) {
-      return image;
-    }
-    // 전체 경로에서 파일 이름만 추출
-    const fileName = image.split("/").pop();
-    // 파일 이름을 URL 인코딩
-    const encodedFileName = encodeURIComponent(fileName || "");
-    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
-    console.log("Generated image URL:", imageUrl); // 디버깅용 출력
-    return imageUrl;
-  };
+    const fileName = image.split("/").pop() || "";
+    return `${BASE_IMAGE_URL}${encodeURIComponent(fileName)}`;
+  }, []);
 
-  const handleCategoryChange = (e: React.ChangeEvent<{ value: unknown }>) => {
-    setCategoryFilter(e.target.value as string);
-  };
+  const handleCategoryChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      setCategoryFilter(e.target.value);
+    },
+    []
+  );
 
-  const handleBrandChange = (e: React.ChangeEvent<{ value: unknown }>) => {
-    setBrandFilter(e.target.value as string);
-  };
+  const handleBrandChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      setBrandFilter(e.target.value);
+    },
+    []
+  );
 
   if (loading) {
     return <CircularProgress sx={{ display: "block", mx: "auto", mt: 5 }} />;
@@ -191,7 +207,7 @@ const AdminProductList: React.FC = () => {
             />
           </Grid>
           <Grid item xs={12} sm={4}>
-            <FormControl fullWidth variant="outlined">
+            <FormControl fullWidth>
               <InputLabel>카테고리</InputLabel>
               <Select
                 value={categoryFilter}
@@ -208,7 +224,7 @@ const AdminProductList: React.FC = () => {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={4}>
-            <FormControl fullWidth variant="outlined">
+            <FormControl fullWidth>
               <InputLabel>브랜드</InputLabel>
               <Select
                 value={brandFilter}
@@ -270,8 +286,7 @@ const AdminProductList: React.FC = () => {
                         alt={product.name}
                         style={{ width: 50, height: 50, objectFit: "cover" }}
                         onError={(e) => {
-                          console.error("Image load failed:", getImageSrc(product.image));
-                          e.currentTarget.src = "/path/to/fallback-image.jpg"; // 에러 발생 시 대체 이미지
+                          (e.currentTarget as HTMLImageElement).src = "/path/to/fallback-image.jpg";
                         }}
                       />
                     ) : (
@@ -282,7 +297,7 @@ const AdminProductList: React.FC = () => {
                   </TableCell>
                   <TableCell>{product.name}</TableCell>
                   <TableCell>{categoryMap[product.category] || product.category}</TableCell>
-                  <TableCell>{product.price.toLocaleString()}원</TableCell>
+                  <TableCell>{product.price?.toLocaleString()}원</TableCell>
                   <TableCell>{product.stock}</TableCell>
                   <TableCell>{product.brand}</TableCell>
                   <TableCell>

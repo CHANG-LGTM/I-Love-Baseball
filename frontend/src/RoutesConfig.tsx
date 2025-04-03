@@ -16,7 +16,6 @@ import MyPage from "./pages/MyPage"; // 추가
 
 import ReviewManagement from "./AdminPage/ReviewManagement"; // 추가
 import ShippingManagement from "./AdminPage/ShippingManagement"; // 추가
-import Reviews from "./pages/WriteReviews";
 import ReviewList from "./pages/ReviewList";
 import WriteReviews from "./pages/WriteReviews";
 

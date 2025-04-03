@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios, { AxiosError } from 'axios'; // AxiosError 타입 임포트
+import { AxiosError } from 'axios'; // AxiosError 타입 임포트
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Container, TextField, Button, Typography, Card, CardContent, Alert, Box, MenuItem } from '@mui/material';
 
@@ -37,11 +37,6 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      const response = await axios.post(
-        'http://localhost:8092/api/auth/register',
-        { email, password, nickname, role },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
 
       alert('회원가입 성공! 로그인 페이지로 이동합니다.');
       navigate('/login');

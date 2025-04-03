@@ -6,10 +6,11 @@ import {
   Card,
   CardContent,
   CardMedia,
+  CircularProgress,
   Container,
   Typography,
 } from "@mui/material";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useEffect, useState } from "react";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick-theme.css";
@@ -38,8 +39,16 @@ interface CartItem {
   quantity: number;
 }
 
-// 수정 1: BASE_IMAGE_URL 추가
-const BASE_IMAGE_URL = "http://localhost:8092/uploads/";
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+  // 필요한 다른 필드 추가
+}
+
+// 환경 변수 사용
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const IMAGE_BASE_URL = import.meta.env.VITE_APP_IMAGE_BASE_URL || "http://localhost:8092/uploads/";
+const FALLBACK_IMAGE = "/images/fallback-product.jpg";
 
 export default function MainPage() {
   const [products, setProducts] = useState<DiscountedProduct[]>([]);
@@ -50,41 +59,26 @@ export default function MainPage() {
   const [pageLoading, setPageLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
-  // 수정 2: getImageSrc 함수 추가
   const getImageSrc = (image: string | undefined): string => {
-    if (!image) {
-      return "/path/to/fallback-image.jpg"; // 기본 대체 이미지 경로
-    }
-    console.log("product.image:", image); // 디버깅용 출력
-    if (image.startsWith("data:image")) {
+    if (!image) return FALLBACK_IMAGE;
+    if (image.startsWith("http") || image.startsWith("data:image")) {
       return image;
     }
-    if (image.startsWith("http://") || image.startsWith("https://")) {
-      return image; // 기존 DB 이미지 유지
-    }
-    // 전체 경로에서 파일 이름만 추출
-    const fileName = image.split("/").pop();
-    // 파일 이름을 URL 인코딩
-    const encodedFileName = encodeURIComponent(fileName || "");
-    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
-    console.log("Generated image URL:", imageUrl); // 디버깅용 출력
-    return imageUrl;
+    return `${IMAGE_BASE_URL}${encodeURIComponent(image)}`;
   };
 
-  // 페이지 로드 시 상품 데이터 가져오기
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:8092/api/products/discounted-products", {
+        const res = await axios.get<DiscountedProduct[]>(`${API_BASE_URL}/api/products/discounted-products`, {
           withCredentials: true,
         });
-        console.log("상품 데이터:", res.data);
+        
         if (Array.isArray(res.data)) {
-          const formattedProducts = res.data.map((item: any) => ({
+          const formattedProducts = res.data.map((item) => ({
             ...item,
-            // 수정 3: getImageSrc 함수 적용
-            image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
+            image: getImageSrc(item.image),
             category: item.category || "unknown",
           }));
           setProducts(formattedProducts);
@@ -94,8 +88,8 @@ export default function MainPage() {
           setProducts([]);
         }
       } catch (err) {
-        console.error("상품 목록 불러오기 오류:", err.response?.data || err.message);
-        setError("상품을 불러오는데 실패했습니다. 서버를 확인해주세요.");
+        const axiosError = err as AxiosError<ApiErrorResponse>;
+        setError(axiosError.response?.data?.message || "상품을 불러오는데 실패했습니다. 나중에 다시 시도해주세요.");
         setProducts([]);
       } finally {
         setLoading(false);
@@ -114,44 +108,31 @@ export default function MainPage() {
     야구화: "shoes",
   };
 
-  const handleLogout = async () => {
-    try {
-      await axios.post("http://localhost:8092/api/auth/logout", {}, { withCredentials: true });
-      localStorage.removeItem("token");
-      localStorage.removeItem("nickname");
-      alert("로그아웃되었습니다.");
-      navigate("/login");
-    } catch (err) {
-      console.error("로그아웃 실패:", err.response?.data || err.message);
-      alert("로그아웃에 실패했습니다.");
-    }
-  };
-
   const toggleCart = async (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
-    console.log("toggleCart - isLoggedIn:", isLoggedIn);
+    
     if (pageLoading || !isLoggedIn) {
       if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
       }
       return;
     }
+    
     try {
       if (cart.includes(productId)) {
         setCart(cart.filter((id) => id !== productId));
       } else {
         await axios.post(
-          "http://localhost:8092/api/cart/add",
+          `${API_BASE_URL}/api/cart/add`,
           { productId },
           { withCredentials: true }
         );
         setCart([...cart, productId]);
-        alert(`${productId}번 상품이 장바구니에 추가되었습니다!`);
       }
     } catch (err) {
-      console.error("장바구니 처리 실패:", err.response?.data || err.message);
+      console.error(err)
       alert("장바구니 처리에 실패했습니다.");
     }
   };
@@ -160,24 +141,23 @@ export default function MainPage() {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
-    if (pageLoading || !isLoggedIn) {
-      if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
+    
+    if (!isLoggedIn) {
+      if (window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
       }
       return;
     }
 
-    // 선택한 상품을 CartItem 형식으로 변환
     const cartItem: CartItem = {
       id: product.id,
       productId: product.id,
       name: product.name,
       price: calculateDiscountedPrice(product.originalPrice, product.discountPercent),
       image: product.image,
-      quantity: 1, // 기본 수량 1로 설정
+      quantity: 1,
     };
 
-    // /checkout으로 이동하며 선택한 상품 정보를 state로 전달
     navigate("/checkout", { state: { cartItems: [cartItem] } });
   };
 
@@ -207,7 +187,11 @@ export default function MainPage() {
   ];
 
   if (pageLoading) {
-    return <Typography align="center">페이지 로딩 중...</Typography>;
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <Typography variant="h6">페이지 로딩 중...</Typography>
+      </Box>
+    );
   }
 
   return (
@@ -216,9 +200,7 @@ export default function MainPage() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
         minHeight: "calc(110vh - 64px)",
-        textAlign: "center",
         mt: 8,
       }}
     >
@@ -226,13 +208,14 @@ export default function MainPage() {
         <Box sx={{ mt: 15, mb: 4 }}>
           <Slider {...sliderSettings}>
             {sliderImages.map((image, index) => (
-              <div key={index} style={{ width: "100%" }}>
+              <div key={index}>
                 <img
                   src={image}
                   alt={`슬라이드 ${index + 1}`}
                   style={{
                     width: "100%",
                     height: "auto",
+                    maxHeight: "400px",
                     objectFit: "contain",
                     borderRadius: "10px",
                   }}
@@ -242,22 +225,27 @@ export default function MainPage() {
           </Slider>
         </Box>
 
-        <Typography variant="h3" gutterBottom>
+        <Typography variant="h3" gutterBottom textAlign="center">
           ⚾ 야구 용품 전문 쇼핑몰
         </Typography>
-        <Typography variant="h6" color="textSecondary" paragraph>
-          최고의 야구 용품을 만나보세요! 배트, 장갑, 보호장비 등 다양한 상품을 제공합니다.
+        <Typography variant="h6" color="textSecondary" paragraph textAlign="center">
+          최고의 야구 용품을 만나보세요!
         </Typography>
 
-        {loading && <Typography>로딩 중...</Typography>}
-        {error && <Typography color="error">{error}</Typography>}
+        {error && (
+          <Box my={2}>
+            <Typography color="error" align="center">
+              {error}
+            </Typography>
+          </Box>
+        )}
 
         <Box sx={{ mt: 4, mb: 6 }}>
-          <Typography variant="h4" color="primary" gutterBottom>
+          <Typography variant="h4" color="primary" gutterBottom textAlign="center">
             파격 할인중
           </Typography>
 
-          <Box sx={{ mb: 3, display: "flex", gap: 1, justifyContent: "center" }}>
+          <Box sx={{ mb: 3, display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
             {["전체", "야구배트", "배팅장갑", "보호장비", "글러브", "야구화"].map((category) => (
               <Button
                 key={category}
@@ -271,171 +259,111 @@ export default function MainPage() {
             ))}
           </Box>
 
-          <Box
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 3,
-              justifyContent: "flex-start",
-            }}
-          >
-            {filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
-                <Card
-                  key={product.id}
-                  sx={{
-                    width: { xs: "100%", sm: "250px" },
-                    height: "450px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    transition: "all 0.3s",
-                    "&:hover": {
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      transform: "translateY(-4px)",
-                    },
-                    cursor: "pointer",
-                  }}
-                  onClick={() => navigate(`/product/${product.id}`)}
-                >
-                  <CardMedia
-                    component="img"
-                    height="200"
-                    image={product.image} // 수정 4: getImageSrc 이미 적용됨
-                    alt={product.name}
-                    sx={{ objectFit: "contain" }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 5: 대체 이미지 경로 변경
-                    }}
-                  />
-                  <CardContent
+          {loading ? (
+            <Box display="flex" justifyContent="center" my={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "repeat(2, 1fr)",
+                  md: "repeat(3, 1fr)",
+                  lg: "repeat(4, 1fr)",
+                },
+                gap: 3,
+              }}
+            >
+              {filteredProducts.length > 0 ? (
+                filteredProducts.map((product) => (
+                  <Card
+                    key={product.id}
                     sx={{
-                      padding: "12px",
-                      flexGrow: 1,
+                      height: "100%",
                       display: "flex",
                       flexDirection: "column",
-                      justifyContent: "space-between",
+                      transition: "all 0.3s",
+                      "&:hover": {
+                        boxShadow: 3,
+                        transform: "translateY(-4px)",
+                      },
                     }}
+                    onClick={() => navigate(`/product/${product.id}`)}
                   >
-                    <Box>
+                    <CardMedia
+                      component="img"
+                      height="200"
+                      image={product.image}
+                      alt={product.name}
+                      sx={{ objectFit: "contain", p: 1 }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                      }}
+                    />
+                    <CardContent sx={{ flexGrow: 1 }}>
                       <Typography
                         variant="h6"
                         component="div"
-                        align="center"
                         sx={{
-                          fontSize: "16px",
-                          lineHeight: "1.2",
-                          minHeight: "40px",
+                          mb: 1,
                           display: "-webkit-box",
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: "vertical",
                           overflow: "hidden",
-                          textOverflow: "ellipsis",
                         }}
                       >
                         {product.name}
                       </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          mb: 1,
-                          textAlign: "center",
-                          fontSize: "14px",
-                          lineHeight: "1.3",
-                          minHeight: "40px",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {product.description}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          gap: 1,
-                          mb: 1,
-                        }}
-                      >
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <Typography color="error">
+                          {product.discountPercent}% 할인
+                        </Typography>
                         <Typography
-                          variant="body1"
                           color="text.secondary"
-                          sx={{ textDecoration: "line-through", fontSize: "14px" }}
+                          sx={{ textDecoration: "line-through" }}
                         >
                           {product.originalPrice.toLocaleString()}원
                         </Typography>
-                        <Typography variant="body1" color="error" sx={{ fontSize: "14px" }}>
-                          {product.discountPercent}% OFF
-                        </Typography>
                       </Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          mb: 1,
-                        }}
-                      >
-                        <Typography variant="h6" color="primary" sx={{ fontSize: "16px" }}>
-                          {calculateDiscountedPrice(
-                            product.originalPrice,
-                            product.discountPercent
-                          ).toLocaleString()}
-                          원
-                        </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                      >
+                      <Typography variant="h6" color="primary" mb={2}>
+                        {calculateDiscountedPrice(
+                          product.originalPrice,
+                          product.discountPercent
+                        ).toLocaleString()}
+                        원
+                      </Typography>
+                      <Box display="flex" justifyContent="space-between">
                         <Button
                           variant="contained"
                           color="primary"
-                          size="medium"
-                          sx={{
-                            fontSize: "20px",
-                            padding: "8px 20px",
-                            borderRadius: "8px",
-                          }}
                           onClick={(e) => handlePurchase(product, e)}
+                          sx={{ flex: 1, mr: 1 }}
                         >
-                          구매하기
+                          구매
                         </Button>
-                        <Box
+                        <Button
                           onClick={(e) => toggleCart(product.id, e)}
-                          sx={{
-                            cursor: "pointer",
-                            padding: 0,
-                            "&:focus": { outline: "none" },
-                            "&:hover": { backgroundColor: "transparent" },
-                          }}
+                          sx={{ minWidth: "auto", p: 1 }}
                         >
                           {cart.includes(product.id) ? (
-                            <FavoriteIcon sx={{ color: "red", fontSize: "34px" }} />
+                            <FavoriteIcon color="error" />
                           ) : (
-                            <FavoriteBorderIcon sx={{ color: "grey", fontSize: "34px" }} />
+                            <FavoriteBorderIcon />
                           )}
-                        </Box>
+                        </Button>
                       </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Typography>해당 카테고리에 할인 상품이 없습니다.</Typography>
-            )}
-          </Box>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Typography gridColumn="1 / -1" textAlign="center" py={4}>
+                  해당 카테고리에 할인 상품이 없습니다.
+                </Typography>
+              )}
+            </Box>
+          )}
         </Box>
       </Container>
     </Box>

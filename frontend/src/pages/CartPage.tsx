@@ -40,14 +40,32 @@ interface RecommendedProduct {
   image: string;
 }
 
-// 수정 1: BASE_IMAGE_URL 추가
-const BASE_IMAGE_URL = "http://localhost:8092/uploads/";
+interface ApiCartItem {
+  id: number;
+  productId: number;
+  name?: string;
+  price?: number;
+  image?: string;
+  quantity?: number;
+}
+
+interface ApiProduct {
+  id: number;
+  name?: string;
+  price?: number;
+  originalPrice?: number;
+  discountRate?: number;
+  image?: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const IMAGE_BASE_URL = import.meta.env.VITE_APP_IMAGE_BASE_URL || "http://localhost:8092/uploads/";
+const FALLBACK_IMAGE = "/images/fallback-product.jpg";
 
 const PriceDisplay: React.FC<{
   price: number;
   originalPrice?: number;
-  discountRate?: number;
-}> = ({ price, originalPrice, discountRate }) => (
+}> = ({ price, originalPrice }) => (
   <Box sx={{ display: "flex", justifyContent: "center", gap: 1, alignItems: "center" }}>
     {originalPrice && originalPrice > price && (
       <Typography
@@ -81,25 +99,12 @@ const CartPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 수정 2: getImageSrc 함수 추가
   const getImageSrc = (image: string | undefined): string => {
-    if (!image) {
-      return "/path/to/fallback-image.jpg"; // 기본 대체 이미지 경로
-    }
-    console.log("product.image:", image); // 디버깅용 출력
-    if (image.startsWith("data:image")) {
+    if (!image) return FALLBACK_IMAGE;
+    if (image.startsWith("http") || image.startsWith("data:image")) {
       return image;
     }
-    if (image.startsWith("http://") || image.startsWith("https://")) {
-      return image; // 기존 DB 이미지 유지
-    }
-    // 전체 경로에서 파일 이름만 추출
-    const fileName = image.split("/").pop();
-    // 파일 이름을 URL 인코딩
-    const encodedFileName = encodeURIComponent(fileName || "");
-    const imageUrl = `${BASE_IMAGE_URL}${encodedFileName}`;
-    console.log("Generated image URL:", imageUrl); // 디버깅용 출력
-    return imageUrl;
+    return `${IMAGE_BASE_URL}${encodeURIComponent(image.split("/").pop() || "")}`;
   };
 
   const getRandomItems = (items: RecommendedProduct[], maxCount: number): RecommendedProduct[] => {
@@ -108,78 +113,56 @@ const CartPage: React.FC = () => {
   };
 
   const fetchCartItems = useCallback(async () => {
-    const nickname = localStorage.getItem("nickname");
-    console.log("Fetching cart items with email:", nickname);
-
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:8092/api/cart", {
-        withCredentials: true,
-      });
-      console.log("Cart API response:", res.status, res.data);
-      if (Array.isArray(res.data)) {
-        const formattedItems: CartItem[] = res.data.map((item: any) => ({
-          id: item.id,
-          productId: item.productId,
-          name: item.name || "상품명 없음",
-          price: item.price || 0,
-          // 수정 3: getImageSrc 함수 적용 (장바구니 아이템)
-          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
-          quantity: item.quantity || 1,
-        }));
-        setCartItems(formattedItems);
-        setError(null);
-      } else {
-        setError("유효한 장바구니 데이터가 아닙니다.");
-        setCartItems([]);
-      }
-
-      const recommendedRes = await axios.get(
-        "http://localhost:8092/api/products/discounted-products",
-        {
+      const [cartRes, recommendedRes] = await Promise.all([
+        axios.get<ApiCartItem[]>(`${API_BASE_URL}/api/cart`, {
           withCredentials: true,
-        }
-      );
-      console.log("Recommended products response:", recommendedRes.status, recommendedRes.data);
-      if (Array.isArray(recommendedRes.data)) {
-        const randomRecommended: RecommendedProduct[] = getRandomItems(recommendedRes.data, 9).map((item: any) => ({
+        }),
+        axios.get<ApiProduct[]>(`${API_BASE_URL}/api/products/discounted-products`, {
+          withCredentials: true,
+        }),
+      ]);
+
+      // Cart items 처리
+      const formattedItems: CartItem[] = cartRes.data.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        name: item.name || "상품명 없음",
+        price: item.price || 0,
+        image: getImageSrc(item.image),
+        quantity: item.quantity || 1,
+      }));
+      setCartItems(formattedItems);
+      setError(null);
+
+      // 추천 상품 처리
+      const randomRecommended: RecommendedProduct[] = getRandomItems(
+        recommendedRes.data.map((item) => ({
           id: item.id,
           name: item.name || "상품명 없음",
           price: item.price || 0,
-          originalPrice: item.originalPrice || item.price,
-          discountRate: item.discountRate || (item.originalPrice && item.price ? Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100) : 0),
-          // 수정 4: getImageSrc 함수 적용 (추천 상품)
-          image: item.image ? getImageSrc(item.image) : "/path/to/fallback-image.jpg",
-        }));
-        setRecommendedProducts(randomRecommended);
+          originalPrice: item.originalPrice || item.price || 0,
+          discountRate: item.discountRate || 
+            (item.originalPrice && item.price 
+              ? Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100) 
+              : 0),
+          image: getImageSrc(item.image),
+        })),
+        9
+      );
+      setRecommendedProducts(randomRecommended);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setError("로그인이 필요합니다.");
+          localStorage.removeItem("nickname");
+          navigate("/login", { replace: true });
+        } else {
+          setError("장바구니를 불러오는데 실패했습니다.");
+        }
       } else {
-        const defaultProducts: RecommendedProduct[] = [
-          { id: 1, name: "야구 배트 1", price: 40000, originalPrice: 50000, image: "/path/to/fallback-image.jpg" },
-          { id: 2, name: "배팅 장갑 1", price: 24000, originalPrice: 30000, image: "/path/to/fallback-image.jpg" },
-          { id: 3, name: "보호 장비 1", price: 36000, originalPrice: 45000, image: "/path/to/fallback-image.jpg" },
-          { id: 4, name: "야구 배트 2", price: 44000, originalPrice: 55000, image: "/path/to/fallback-image.jpg" },
-          { id: 5, name: "배팅 장갑 2", price: 25600, originalPrice: 32000, image: "/path/to/fallback-image.jpg" },
-          { id: 6, name: "보호 장비 2", price: 37600, originalPrice: 47000, image: "/path/to/fallback-image.jpg" },
-          { id: 7, name: "야구 배트 3", price: 48000, originalPrice: 60000, image: "/path/to/fallback-image.jpg" },
-          { id: 8, name: "배팅 장갑 3", price: 28000, originalPrice: 35000, image: "/path/to/fallback-image.jpg" },
-          { id: 9, name: "보호 장비 3", price: 39200, originalPrice: 49000, image: "/path/to/fallback-image.jpg" },
-        ];
-        setRecommendedProducts(
-          getRandomItems(defaultProducts, 9).map((item) => ({
-            ...item,
-            discountRate: item.discountRate || Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100),
-          }))
-        );
-      }
-    } catch (err: any) {
-      console.error("Cart fetch error:", err.response?.status, err.response?.data || err.message);
-      if (err.response?.status === 401) {
-        setError("로그인이 필요합니다.");
-        localStorage.removeItem("email");
-        localStorage.removeItem("nickname");
-        navigate("/login", { replace: true });
-      } else {
-        setError("장바구니를 불러오는데 실패했습니다.");
+        setError("알 수 없는 오류가 발생했습니다.");
       }
       setCartItems([]);
     } finally {
@@ -193,15 +176,13 @@ const CartPage: React.FC = () => {
 
   const removeItem = async (cartItemId: number) => {
     try {
-      await axios.delete(`http://localhost:8092/api/cart/remove/${cartItemId}`, {
+      await axios.delete(`${API_BASE_URL}/api/cart/remove/${cartItemId}`, {
         withCredentials: true,
       });
       setCartItems(cartItems.filter((item) => item.id !== cartItemId));
-    } catch (err: any) {
-      console.error("Cart item removal error:", err.response?.status, err.response?.data || err.message);
-      if (err.response?.status === 401) {
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
         setError("로그인이 필요합니다.");
-        localStorage.removeItem("email");
         localStorage.removeItem("nickname");
         navigate("/login", { replace: true });
       } else {
@@ -215,22 +196,18 @@ const CartPage: React.FC = () => {
 
     try {
       await axios.put(
-        `http://localhost:8092/api/cart/update/${cartItemId}`,
+        `${API_BASE_URL}/api/cart/update/${cartItemId}`,
         { quantity: newQuantity },
-        {
-          withCredentials: true,
-        }
+        { withCredentials: true }
       );
       setCartItems(
         cartItems.map((item) =>
           item.id === cartItemId ? { ...item, quantity: newQuantity } : item
         )
       );
-    } catch (err: any) {
-      console.error("Quantity update error:", err.response?.status, err.response?.data || err.message);
-      if (err.response?.status === 401) {
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
         setError("로그인이 필요합니다.");
-        localStorage.removeItem("email");
         localStorage.removeItem("nickname");
         navigate("/login", { replace: true });
       } else {
@@ -271,9 +248,9 @@ const CartPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Typography align="center" sx={{ mt: 8 }}>
-        장바구니 로딩 중...
-      </Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <Typography variant="h6">장바구니 로딩 중...</Typography>
+      </Box>
     );
   }
 
@@ -289,7 +266,7 @@ const CartPage: React.FC = () => {
 
       {error ? (
         <Box sx={{ textAlign: "center", mt: 4 }}>
-          <Typography color="error" align="center" sx={{ mb: 4 }}>
+          <Typography color="error" sx={{ mb: 4 }}>
             {error}
           </Typography>
           {error.includes("로그인") && (
@@ -309,9 +286,6 @@ const CartPage: React.FC = () => {
             <ShoppingCartIcon sx={{ fontSize: 80, color: "grey.400" }} />
             <Typography variant="h6" sx={{ mt: 2, color: "grey.600" }}>
               장바구니가 비어 있습니다.
-            </Typography>
-            <Typography variant="body1" sx={{ mt: 1, color: "grey.600" }}>
-              마음에 드는 상품을 추가해보세요!
             </Typography>
             <Button
               variant="contained"
@@ -334,18 +308,18 @@ const CartPage: React.FC = () => {
                   alignItems: "center",
                   p: 2,
                   borderRadius: "12px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  boxShadow: 3,
                   transition: "transform 0.3s",
                   "&:hover": { transform: "translateY(-4px)" },
                 }}
               >
                 <CardMedia
                   component="img"
-                  sx={{ width: 120, borderRadius: "8px" }}
-                  image={item.image} // 수정 5: getImageSrc 이미 적용됨
+                  sx={{ width: 120, height: 120, objectFit: "contain", borderRadius: "8px" }}
+                  image={item.image}
                   alt={item.name}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 6: 대체 이미지 경로 변경
+                    (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                   }}
                 />
                 <CardContent sx={{ flex: 1 }}>
@@ -415,37 +389,27 @@ const CartPage: React.FC = () => {
                     <Card
                       key={product.id}
                       sx={{
-                        flex: "1 1 0",
+                        flex: 1,
                         borderRadius: "12px",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        boxShadow: 3,
                         transition: "transform 0.3s",
                         "&:hover": { transform: "translateY(-4px)" },
                         cursor: "pointer",
-                        position: "relative",
-                        minWidth: 0,
-                        overflow: "visible",
                       }}
                       onClick={() => navigate(`/product/${product.id}`)}
                     >
                       {product.discountRate && product.discountRate > 0 && (
                         <Badge
                           badgeContent={`${product.discountRate}% OFF`}
+                          color="error"
                           sx={{
                             position: "absolute",
-                            top: 20,
-                            right: 25,
-                            zIndex: 1,
+                            top: 16,
+                            right: 16,
                             "& .MuiBadge-badge": {
-                              backgroundColor: "#ff5722",
-                              color: "white",
                               fontSize: "0.65rem",
                               padding: "2px 6px",
                               borderRadius: "10px",
-                              minWidth: "30px",
-                              height: "20px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
                             },
                           }}
                         />
@@ -453,11 +417,11 @@ const CartPage: React.FC = () => {
                       <CardMedia
                         component="img"
                         height="150"
-                        image={product.image} // 수정 7: getImageSrc 이미 적용됨
+                        image={product.image}
                         alt={product.name}
-                        sx={{ objectFit: "contain", borderBottom: "1px solid #eee" }}
+                        sx={{ objectFit: "contain", p: 2 }}
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = "/path/to/fallback-image.jpg"; // 수정 8: 대체 이미지 경로 변경
+                          (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                         }}
                       />
                       <CardContent sx={{ textAlign: "center" }}>
@@ -476,7 +440,6 @@ const CartPage: React.FC = () => {
                         <PriceDisplay
                           price={product.price}
                           originalPrice={product.originalPrice}
-                          discountRate={product.discountRate}
                         />
                       </CardContent>
                     </Card>

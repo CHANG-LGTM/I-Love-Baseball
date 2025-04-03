@@ -14,10 +14,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Rating, // 별점 컴포넌트 추가
+  Rating,
 } from "@mui/material";
 import { CameraAlt, Close } from "@mui/icons-material";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useAuth } from "../AdminPage/AuthContext";
 import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
@@ -78,6 +78,15 @@ interface Product {
   name: string;
 }
 
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+// 환경 변수 설정
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const FALLBACK_IMAGE = import.meta.env.VITE_APP_FALLBACK_IMAGE || "/images/fallback-image.jpg";
+
 export default function WriteReview() {
   const { nickname } = useAuth();
   const navigate = useNavigate();
@@ -89,7 +98,7 @@ export default function WriteReview() {
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState<number | null>(null);
-  const [rating, setRating] = useState<number | null>(null); // 별점 상태 추가
+  const [rating, setRating] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -99,15 +108,19 @@ export default function WriteReview() {
       return;
     }
 
-    // 상품 목록 가져오기
     const fetchProducts = async () => {
       try {
-        const response = await axios.get<Product[]>("http://localhost:8092/api/products", {
+        const response = await axios.get<Product[]>(`${API_BASE_URL}/api/products`, {
           withCredentials: true,
         });
         setProducts(response.data);
       } catch (err) {
-        setError("상품 목록을 불러오는 데 실패했습니다.");
+        const axiosError = err as AxiosError<ApiErrorResponse>;
+        const errorMessage =
+          axiosError.response?.data?.message ||
+          axiosError.message ||
+          "상품 목록을 불러오는 데 실패했습니다.";
+        setError(errorMessage);
       }
     };
 
@@ -158,12 +171,12 @@ export default function WriteReview() {
       const formData = new FormData();
       formData.append("content", review);
       formData.append("productId", productId.toString());
-      formData.append("rating", rating.toString()); // 별점 추가
+      formData.append("rating", rating.toString());
       if (image) {
         formData.append("image", image);
       }
 
-      await axios.post("http://localhost:8092/api/reviews", formData, {
+      await axios.post(`${API_BASE_URL}/api/reviews`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -177,11 +190,14 @@ export default function WriteReview() {
       setRating(null);
       setError(null);
       setSuccess("리뷰가 성공적으로 작성되었습니다.");
-      // 리뷰 제출 후 ReviewList 페이지로 이동
       setTimeout(() => navigate("/review-list"), 2000);
     } catch (err) {
-      console.error("리뷰 작성 실패:", err);
-      setError("리뷰 작성에 실패했습니다.");
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        "리뷰 작성에 실패했습니다.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -354,8 +370,7 @@ export default function WriteReview() {
                 src={imagePreview}
                 alt="미리보기"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "/path/to/fallback-image.jpg";
+                  (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                 }}
               />
               <RemoveImageButton size="small" onClick={removeImage}>

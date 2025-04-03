@@ -41,7 +41,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // 공개 엔드포인트
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-auth","/api/auth/check-role","/api/auth/logout").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers("/login/oauth2/**", "/oauth2/authorize/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
 
@@ -55,6 +55,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").authenticated()
 
+
+
+                        .requestMatchers("/api/auth/check-auth","/api/auth/check-role","/api/auth/logout").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/reviews/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/reviews/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/reviews/**").authenticated()

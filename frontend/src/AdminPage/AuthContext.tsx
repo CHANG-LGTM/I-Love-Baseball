@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import axios from "axios";
 import { Box, Typography } from "@mui/material";
 
@@ -12,6 +12,14 @@ interface AuthContextType {
   loading: boolean;
 }
 
+interface AuthResponse {
+  roles?: string[];
+  nickname?: string;
+  token?: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -19,30 +27,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isChecking, setIsChecking] = useState<boolean>(false); // 중복 호출 방지 플래그
+  const [isChecking, setIsChecking] = useState<boolean>(false);
 
-  const checkAuth = async (): Promise<boolean> => {
-    if (isChecking) {
-      console.log("이미 인증 확인 중, 재호출 방지");
-      return false;
-    }
+  const checkAuth = useCallback(async (): Promise<boolean> => {
+    if (isChecking) return false;
+    if (!loading && nickname !== null) return true;
 
-    if (!loading && nickname !== null) {
-      console.log("이미 인증 확인됨, 재호출 방지");
-      return true;
-    }
-
-    console.trace("checkAuth 호출됨");
     setIsChecking(true);
     setLoading(true);
 
     try {
-      const response = await axios.get<{ roles: string[]; nickname?: string; token?: string }>(
-        "http://localhost:8092/api/auth/check-role",
+      const response = await axios.get<AuthResponse>(
+        `${API_BASE_URL}/api/auth/check-role`,
         { withCredentials: true }
       );
-      console.log("Check auth response:", response.data);
-      const { roles, nickname: fetchedNickname, token: authToken } = response.data;
+
+      const { roles = [], nickname: fetchedNickname, token: authToken } = response.data;
 
       if (fetchedNickname) {
         setNickname(fetchedNickname);
@@ -53,16 +53,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem("token", authToken);
         }
         return true;
-      } else {
-        setNickname(null);
-        setIsAdmin(false);
-        setToken(null);
-        localStorage.removeItem("nickname");
-        localStorage.removeItem("token");
-        return false;
       }
+
+      // 인증 실패 시 처리
+      setNickname(null);
+      setIsAdmin(false);
+      setToken(null);
+      localStorage.removeItem("nickname");
+      localStorage.removeItem("token");
+      return false;
     } catch (err) {
-      console.error("인증 확인 실패:", err);
+      console.log(err)
       setNickname(null);
       setIsAdmin(false);
       setToken(null);
@@ -73,27 +74,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
       setIsChecking(false);
     }
-  };
+  }, [isChecking, loading, nickname]);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedNickname = localStorage.getItem("nickname");
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem("token");
+      const storedNickname = localStorage.getItem("nickname");
 
-    if (storedToken && storedNickname) {
-      setToken(storedToken);
-      setNickname(storedNickname);
-      setLoading(false); // 저장된 데이터가 있으면 바로 로딩 종료
-    } else {
-      checkAuth(); // 저장된 데이터가 없으면 인증 확인
-    }
-  }, []); // 의존성 배열 비움
+      if (storedToken && storedNickname) {
+        setToken(storedToken);
+        setNickname(storedNickname);
+        setLoading(false);
+      } else {
+        await checkAuth();
+      }
+    };
+
+    if(loading) initializeAuth();
+  }, [checkAuth, loading]);
 
   return (
     <AuthContext.Provider
-      value={{ nickname, setNickname, isAdmin, setIsAdmin, checkAuth, token, loading }}
+      value={{ 
+        nickname, 
+        setNickname, 
+        isAdmin, 
+        setIsAdmin, 
+        checkAuth, 
+        token, 
+        loading 
+      }}
     >
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+        <Box sx={{ 
+          display: "flex", 
+          justifyContent: "center", 
+          alignItems: "center", 
+          height: "100vh" 
+        }}>
           <Typography variant="h6">인증 확인 중...</Typography>
         </Box>
       ) : (

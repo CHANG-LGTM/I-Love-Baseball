@@ -14,8 +14,11 @@ import {
 } from "@mui/material";
 import { useAuth } from "../AdminPage/AuthContext";
 
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || "http://localhost:5173";
+
 const Login: React.FC = () => {
-  const { nickname, setNickname, isAdmin, checkAuth } = useAuth();
+  const { nickname, setNickname, checkAuth } = useAuth();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,7 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       const response = await axios.post(
-        "http://localhost:8092/api/auth/login",
+        `${API_BASE_URL}/api/auth/login`,
         { email: email.trim(), password: password.trim() },
         {
           headers: { "Content-Type": "application/json" },
@@ -58,9 +61,14 @@ const Login: React.FC = () => {
       } else {
         setError("로그인에 실패했습니다. 다시 시도해주세요.");
       }
-    } catch (err: any) {
-      console.error("로그인 실패:", err.response?.data || err.message);
-      setError(err.response?.data?.error || "로그인 실패");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || "로그인 실패");
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("알 수 없는 오류가 발생했습니다.");
+      }
     } finally {
       setLoading(false);
     }
@@ -69,21 +77,22 @@ const Login: React.FC = () => {
   const handleLogout = async () => {
     try {
       await axios.post(
-        "http://localhost:8092/api/auth/logout",
+        `${API_BASE_URL}/api/auth/logout`,
         {},
         { withCredentials: true }
       );
       localStorage.removeItem("nickname");
       setNickname(null);
       navigate("/");
-    } catch (error) {
-      console.error("로그아웃 실패:", error);
-      alert("로그아웃에 실패했습니다.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError("로그아웃에 실패했습니다.");
+      }
     }
   };
 
   const handleSNSLogin = (provider: string) => {
-    window.location.href = `http://localhost:8092/oauth2/authorize/${provider}?redirect_uri=http://localhost:5173`;
+    window.location.href = `${API_BASE_URL}/oauth2/authorize/${provider}?redirect_uri=${REDIRECT_URI}`;
   };
 
   return (

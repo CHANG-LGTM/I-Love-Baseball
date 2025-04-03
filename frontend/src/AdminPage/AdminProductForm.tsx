@@ -1,4 +1,3 @@
-// src/pages/admin/AdminProductForm.tsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -15,10 +14,18 @@ import {
   FormControlLabel,
   Alert,
   CircularProgress,
+  SelectChangeEvent,
 } from "@mui/material";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { Product } from "../types/Product";
 import { useAuth } from "./AuthContext";
+
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
 
 const AdminProductForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,120 +48,157 @@ const AdminProductForm: React.FC = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  useEffect(() => {
-    const initialize = async () => {
-      setLoading(true);
-      await checkAuth(); // 인증 상태 확인
+  const initialize = useCallback(async () => {
+    setLoading(true);
+    const isAuthenticated = await checkAuth();
 
-      if (!isAdmin) {
-        navigate("/login");
-        return;
-      }
+    if (!isAuthenticated || !isAdmin) {
+      navigate("/login");
+      return;
+    }
 
-      if (id) {
-        try {
-          const response = await axios.get(`http://localhost:8092/api/admin/products/${id}`, {
-            withCredentials: true,
-          });
-          const fetchedProduct = response.data;
-          setProduct(fetchedProduct);
-          setImagePreview(fetchedProduct.image || null); // 기존 이미지 미리보기 설정
-          setError(null);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (err: unknown) {
-          setError("상품 정보를 불러오는데 실패했습니다.");
-        }
+    if (id) {
+      try {
+        const response = await axios.get<Product>(
+          `${API_BASE_URL}/api/admin/products/${id}`,
+          { withCredentials: true }
+        );
+        const fetchedProduct = response.data;
+        setProduct(fetchedProduct);
+        setImagePreview(fetchedProduct.image || null);
+        setError(null);
+      } catch (err) {
+        const axiosError = err as AxiosError<ApiErrorResponse>;
+        setError(
+          axiosError.response?.data?.message || 
+          "상품 정보를 불러오는데 실패했습니다."
+        );
       }
-      setLoading(false);
-    };
-    initialize();
+    }
+    setLoading(false);
   }, [id, isAdmin, navigate, checkAuth]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | { name?: string; value: unknown }>) => {
-    const { name, value } = e.target;
-    setProduct((prev) => ({ ...prev, [name as string]: value }));
-  };
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProduct((prev) => ({ ...prev, discounted: e.target.checked }));
-  };
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const { name, value } = e.target;
+      setProduct((prev) => ({ ...prev, [name]: value }));
+    },
+    []
+  );
 
-  // 이미지 파일 처리
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const handleSelectChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      const { name, value } = e.target;
+      setProduct((prev) => ({ ...prev, [name as string]: value }));
+    },
+    []
+  );
 
-  // 드래그 앤 드롭 처리
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleCheckboxChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setProduct((prev) => ({ ...prev, discounted: e.target.checked }));
+    },
+    []
+  );
+
+  const handleImageChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    []
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith("image/")) {
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setError("이미지 파일만 업로드 가능합니다.");
+      }
+    },
+    []
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setError("이미지 파일만 업로드 가능합니다.");
-    }
   }, []);
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+        let imageUrl = product.image;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      let imageUrl = product.image;
+        if (imageFile) {
+          const formData = new FormData();
+          formData.append("file", imageFile);
+          const uploadResponse = await axios.post(
+            `${API_BASE_URL}/api/admin/uploads`,
+            formData,
+            {
+              withCredentials: true,
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+          imageUrl = uploadResponse.data.url;
+        }
 
-      // 이미지 파일이 있는 경우 업로드
-      if (imageFile) {
-        const formData = new FormData();
-        formData.append("file", imageFile);
-        const uploadResponse = await axios.post("http://localhost:8092/api/admin/uploads", formData, {
-          withCredentials: true,
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        imageUrl = uploadResponse.data.url; // 서버에서 반환된 이미지 URL
+        const updatedProduct = { ...product, image: imageUrl };
+
+        if (id) {
+          await axios.put(
+            `${API_BASE_URL}/api/admin/products/${id}`,
+            updatedProduct,
+            { withCredentials: true }
+          );
+        } else {
+          await axios.post(
+            `${API_BASE_URL}/api/admin/products`,
+            updatedProduct,
+            { withCredentials: true }
+          );
+        }
+        navigate("/admin/products");
+      } catch (err) {
+        const axiosError = err as AxiosError<ApiErrorResponse>;
+        setError(
+          axiosError.response?.data?.message || 
+          "상품 저장에 실패했습니다."
+        );
       }
-
-      const updatedProduct = { ...product, image: imageUrl };
-
-      if (id) {
-        await axios.put(`http://localhost:8092/api/admin/products/${id}`, updatedProduct, {
-          withCredentials: true,
-        });
-      } else {
-        await axios.post("http://localhost:8092/api/admin/products", updatedProduct, {
-          withCredentials: true,
-        });
-      }
-      navigate("/admin/products");
-    } catch (err: unknown) {
-      setError("상품 저장에 실패했습니다.");
-    }
-  };
+    },
+    [id, product, imageFile, navigate]
+  );
 
   if (loading) {
     return <CircularProgress sx={{ display: "block", mx: "auto", mt: 5 }} />;
   }
 
   if (!isAdmin) {
-    return null; // 리다이렉트 처리 중이므로 아무것도 렌더링하지 않음
+    return null;
   }
 
   return (
@@ -162,7 +206,11 @@ const AdminProductForm: React.FC = () => {
       <Typography variant="h4" gutterBottom align="center">
         {id ? "상품 수정" : "상품 등록"}
       </Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <form onSubmit={handleSubmit}>
         <TextField
           label="상품명"
@@ -208,7 +256,7 @@ const AdminProductForm: React.FC = () => {
           <Select
             name="category"
             value={product.category}
-            onChange={handleChange}
+            onChange={handleSelectChange}
             required
           >
             <MenuItem value="bats">야구배트</MenuItem>
@@ -219,7 +267,6 @@ const AdminProductForm: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* 이미지 업로드 및 드래그 앤 드롭 영역 */}
         <Box
           sx={{
             border: "2px dashed #ccc",

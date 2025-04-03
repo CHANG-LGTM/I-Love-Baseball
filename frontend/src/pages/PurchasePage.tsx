@@ -14,14 +14,16 @@ import {
   Container,
   Alert,
 } from "@mui/material";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import PortOne from "@portone/browser-sdk/v2";
 
-declare global {
-  interface Window {
-    DaumPostcode: any;
-    PortOne?: any;
-  }
+// 전역 타입 선언
+interface DaumPostcodeWindow {
+  daum: {
+    Postcode: new (options: { oncomplete: (data: DaumPostcodeData) => void }) => {
+      open: () => void;
+    };
+  };
 }
 
 interface CartItem {
@@ -38,10 +40,37 @@ interface Address {
   detailAddress: string;
 }
 
+interface DaumPostcodeData {
+  address: string;
+  bname?: string;
+}
+
+interface PaymentResponse {
+  status: string;
+  paymentKey?: string;
+}
+
+interface OrderResponse {
+  orderId: string;
+}
+
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+}
+
+// 환경 변수 설정
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const CLIENT_BASE_URL = import.meta.env.VITE_APP_CLIENT_BASE_URL || "http://localhost:3000";
+const FALLBACK_IMAGE = import.meta.env.VITE_APP_FALLBACK_IMAGE || "/images/fallback-image.jpg";
+const DAUM_POSTCODE_URL = import.meta.env.VITE_APP_DAUM_POSTCODE_URL || "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+const PORTONE_STORE_ID = import.meta.env.VITE_APP_PORTONE_STORE_ID || "store-1928f2a9-df1e-4126-9f6f-d9ac630a7825";
+const PORTONE_CHANNEL_KEY = import.meta.env.VITE_APP_PORTONE_CHANNEL_KEY || "channel-key-4e815d5c-761a-4bce-967f-6453080e9b7e";
+
 const PurchasePage: React.FC = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const [cartItems, setCartItems] = useState<CartItem[]>(state?.cartItems || []);
+  const [cartItems] = useState<CartItem[]>(state?.cartItems || []);
   const [name, setName] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [address, setAddress] = useState<Address>({ mainAddress: "", detailAddress: "" });
@@ -71,20 +100,17 @@ const PurchasePage: React.FC = () => {
   // Daum Postcode API 로드
   useEffect(() => {
     const daumScript = document.createElement("script");
-    daumScript.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    daumScript.src = DAUM_POSTCODE_URL;
     daumScript.async = true;
-    daumScript.onload = () => {
-      console.log("Daum Postcode API loaded successfully");
-      setDaumPostcodeLoaded(true);
-    };
-    daumScript.onerror = () => {
-      console.error("Failed to load Daum Postcode API");
+    daumScript.onload = () => setDaumPostcodeLoaded(true);
+    daumScript.onerror = () =>
       setError("주소 검색 API 로드가 실패했습니다. 네트워크를 확인해 주세요.");
-    };
     document.body.appendChild(daumScript);
 
     return () => {
-      document.body.removeChild(daumScript);
+      if (document.body.contains(daumScript)) {
+        document.body.removeChild(daumScript);
+      }
     };
   }, []);
 
@@ -97,7 +123,7 @@ const PurchasePage: React.FC = () => {
     }
   }, []);
 
-  const calculateTotal = () => {
+  const calculateTotal = (): number => {
     return cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   };
 
@@ -108,13 +134,14 @@ const PurchasePage: React.FC = () => {
       return;
     }
 
-    if (!window.daum?.Postcode) {
+    const daumWindow = window as unknown as DaumPostcodeWindow;
+    if (!daumWindow.daum?.Postcode) {
       setError("주소 검색 API를 찾을 수 없습니다. 페이지를 새로고침해 주세요.");
       return;
     }
 
-    new window.daum.Postcode({
-      oncomplete: (data: any) => {
+    new daumWindow.daum.Postcode({
+      oncomplete: (data: DaumPostcodeData) => {
         const fullAddress = data.address;
         const extraAddress = data.bname ? ` (${data.bname})` : "";
         setAddress({
@@ -156,15 +183,17 @@ const PurchasePage: React.FC = () => {
         })),
       };
 
-      const response = await axios.post("http://localhost:8092/api/payments/portone", orderData, {
-        withCredentials: true,
-      });
+      const response = await axios.post<OrderResponse>(
+        `${API_BASE_URL}/api/payments/portone`,
+        orderData,
+        { withCredentials: true }
+      );
 
       const { orderId } = response.data;
 
-      const paymentResponse = await PortOne.requestPayment({
-        storeId: "store-1928f2a9-df1e-4126-9f6f-d9ac630a7825",
-        channelKey: "channel-key-4e815d5c-761a-4bce-967f-6453080e9b7e",
+      const paymentResponse = (await PortOne.requestPayment({
+        storeId: PORTONE_STORE_ID,
+        channelKey: PORTONE_CHANNEL_KEY,
         paymentId: `payment-${orderId}-${Date.now()}`,
         orderName: orderData.orderName,
         totalAmount: orderData.amount,
@@ -173,12 +202,12 @@ const PurchasePage: React.FC = () => {
         customData: {
           item: orderData.orderName,
         },
-        redirectUrl: `http://localhost:3000/purchase/${orderId}`,
-      });
+        redirectUrl: `${CLIENT_BASE_URL}/purchase/${orderId}`,
+      })) as unknown as PaymentResponse;
 
       if (paymentResponse.status === "PAID") {
         await axios.post(
-          "http://localhost:8092/api/payments/portone/verify",
+          `${API_BASE_URL}/api/payments/portone/verify`,
           null,
           {
             params: {
@@ -192,9 +221,13 @@ const PurchasePage: React.FC = () => {
       } else {
         setError("결제가 취소되었거나 실패했습니다.");
       }
-    } catch (err: any) {
-      console.error("결제 요청 실패:", err);
-      if (err.response?.status === 401) {
+    } catch (err) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        "결제 요청에 실패했습니다.";
+      if (axiosError.response?.status === 401) {
         setError("인증이 필요합니다. 다시 로그인해 주세요.");
         localStorage.removeItem("nickname");
         localStorage.removeItem("token");
@@ -202,7 +235,7 @@ const PurchasePage: React.FC = () => {
           navigate("/login", { state: { from: window.location.pathname, cartItems } });
         }, 1000);
       } else {
-        setError("결제 요청에 실패했습니다. 다시 시도해 주세요.");
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -226,6 +259,9 @@ const PurchasePage: React.FC = () => {
                 src={item.image}
                 alt={item.name}
                 style={{ width: 80, height: 80, objectFit: "contain", marginRight: 16 }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                }}
               />
               <Box>
                 <Typography variant="body1">{item.name}</Typography>
