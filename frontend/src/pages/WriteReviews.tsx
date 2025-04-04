@@ -265,7 +265,7 @@ export default function WriteReview() {
             <Rating
               name="rating"
               value={rating}
-              onChange={(event, newValue) => {
+              onChange={(_event, newValue) => {
                 setRating(newValue);
               }}
               precision={1}

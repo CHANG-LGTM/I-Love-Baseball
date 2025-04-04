@@ -1,123 +1,259 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Product } from "../types/Product";
 import { Container, Typography, TextField, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from "@mui/material";
+
+interface Product {
+  id: string; // AWS 환경에서는 보통 문자열 ID 사용
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+}
+
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
 
 export default function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [newProduct, setNewProduct] = useState({ name: "", description: "", price: 0, stock: 0 });
+  const [newProduct, setNewProduct] = useState<Omit<Product, 'id'>>({ 
+    name: "", 
+    description: "", 
+    price: 0, 
+    stock: 0 
+  });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 🔥 상품 목록 조회
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  const fetchProducts = () => {
-    axios.get("http://localhost:8092/api/products")
-      .then((res) => setProducts(res.data))
-      .catch((err) => console.error("상품 목록 불러오기 오류:", err));
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/products`);
+      setProducts(response.data);
+    } catch (err) {
+      console.log(err)
+      setError("Failed to fetch products");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // 🔥 상품 추가
-  const handleAddProduct = () => {
-    axios.post("http://localhost:8092/api/products", newProduct)
-      .then(() => {
-        fetchProducts(); // 추가 후 목록 새로고침
-        setNewProduct({ name: "", description: "", price: 0, stock: 0 }); // 입력값 초기화
-      })
-      .catch((err) => console.error("상품 추가 오류:", err));
+  const handleAddProduct = async () => {
+    if (!newProduct.name.trim()) {
+      setError("Product name is required");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      await axios.post(`${API_BASE_URL}/api/products`, newProduct);
+      await fetchProducts();
+      setNewProduct({ name: "", description: "", price: 0, stock: 0 });
+    } catch (err) {
+      console.log(err)
+      setError("Failed to add product");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // 🔥 상품 삭제
-  const handleDeleteProduct = (id: number) => {
-    axios.delete(`http://localhost:8092/api/products/${id}`)
-      .then(() => fetchProducts()) // 삭제 후 목록 새로고침
-      .catch((err) => console.error("상품 삭제 오류:", err));
+  const handleDeleteProduct = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await axios.delete(`${API_BASE_URL}/api/products/${id}`);
+      await fetchProducts();
+    } catch (err) {
+      console.log(err)
+      setError("Failed to delete product");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // 🔥 상품 수정 모드 활성화
-  const startEditProduct = (product: Product) => {
-    setEditingProduct(product);
-  };
-
-  // 🔥 상품 업데이트
-  const handleUpdateProduct = () => {
+  const handleUpdateProduct = async () => {
     if (!editingProduct) return;
-    
-    axios.put(`http://localhost:8092/api/products/${editingProduct.id}`, editingProduct)
-      .then(() => {
-        fetchProducts(); // 업데이트 후 목록 새로고침
-        setEditingProduct(null); // 수정 모드 종료
-      })
-      .catch((err) => console.error("상품 수정 오류:", err));
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      await axios.put(`${API_BASE_URL}/api/products/${editingProduct.id}`, editingProduct);
+      await fetchProducts();
+      setEditingProduct(null);
+    } catch (err) {
+      console.log(err)
+      setError("Failed to update product");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <Container maxWidth="md" style={{ marginTop: "20px" }}>
       <Typography variant="h4" gutterBottom>
-        야구 용품 목록
+        Baseball Products
       </Typography>
 
-      {/* 🔥 상품 추가 폼 */}
+      {error && (
+        <Typography color="error" style={{ marginBottom: "16px" }}>
+          {error}
+        </Typography>
+      )}
+
+      {/* Add Product Form */}
       <Paper style={{ padding: "16px", marginBottom: "20px" }}>
-        <Typography variant="h6">상품 추가</Typography>
-        <TextField label="상품명" fullWidth margin="normal" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
-        <TextField label="설명" fullWidth margin="normal" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} />
-        <TextField label="가격" type="number" fullWidth margin="normal" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: Number(e.target.value) })} />
-        <TextField label="재고" type="number" fullWidth margin="normal" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} />
-        <Button variant="contained" color="primary" onClick={handleAddProduct} style={{ marginTop: "10px" }}>상품 추가</Button>
+        <Typography variant="h6">Add New Product</Typography>
+        <TextField 
+          label="Name" 
+          fullWidth 
+          margin="normal" 
+          value={newProduct.name} 
+          onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} 
+        />
+        <TextField 
+          label="Description" 
+          fullWidth 
+          margin="normal" 
+          value={newProduct.description} 
+          onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} 
+        />
+        <TextField 
+          label="Price" 
+          type="number" 
+          fullWidth 
+          margin="normal" 
+          value={newProduct.price} 
+          onChange={(e) => setNewProduct({ ...newProduct, price: Number(e.target.value) })} 
+        />
+        <TextField 
+          label="Stock" 
+          type="number" 
+          fullWidth 
+          margin="normal" 
+          value={newProduct.stock} 
+          onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} 
+        />
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={handleAddProduct} 
+          disabled={isLoading}
+          style={{ marginTop: "10px" }}
+        >
+          {isLoading ? "Adding..." : "Add Product"}
+        </Button>
       </Paper>
 
-      {/* 🔥 상품 목록 */}
+      {/* Product List */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>상품명</TableCell>
-              <TableCell>설명</TableCell>
-              <TableCell>가격</TableCell>
-              <TableCell>재고</TableCell>
-              <TableCell>관리</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell>Price</TableCell>
+              <TableCell>Stock</TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {products.length > 0 ? (
+            {isLoading && products.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">Loading...</TableCell>
+              </TableRow>
+            ) : products.length > 0 ? (
               products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>{product.name}</TableCell>
                   <TableCell>{product.description}</TableCell>
-                  <TableCell>{product.price}원</TableCell>
+                  <TableCell>{product.price.toLocaleString()}원</TableCell>
                   <TableCell>{product.stock}</TableCell>
                   <TableCell>
-                    <Button variant="outlined" color="secondary" onClick={() => startEditProduct(product)} style={{ marginRight: "5px" }}>
-                      수정
+                    <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      onClick={() => setEditingProduct(product)} 
+                      style={{ marginRight: "5px" }}
+                      disabled={isLoading}
+                    >
+                      Edit
                     </Button>
-                    <Button variant="outlined" color="error" onClick={() => handleDeleteProduct(product.id)}>
-                      삭제
+                    <Button 
+                      variant="outlined" 
+                      color="error" 
+                      onClick={() => handleDeleteProduct(product.id)}
+                      disabled={isLoading}
+                    >
+                      Delete
                     </Button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} align="center">상품이 없습니다.</TableCell>
+                <TableCell colSpan={5} align="center">No products found</TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
 
-      {/* 🔥 상품 수정 폼 */}
+      {/* Edit Product Form */}
       {editingProduct && (
         <Paper style={{ padding: "16px", marginTop: "20px" }}>
-          <Typography variant="h6">상품 수정</Typography>
-          <TextField label="상품명" fullWidth margin="normal" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
-          <TextField label="설명" fullWidth margin="normal" value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
-          <TextField label="가격" type="number" fullWidth margin="normal" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: Number(e.target.value) })} />
-          <TextField label="재고" type="number" fullWidth margin="normal" value={editingProduct.stock} onChange={(e) => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} />
-          <Button variant="contained" color="primary" onClick={handleUpdateProduct} style={{ marginTop: "10px", marginRight: "10px" }}>수정 완료</Button>
-          <Button variant="outlined" onClick={() => setEditingProduct(null)} style={{ marginTop: "10px" }}>취소</Button>
+          <Typography variant="h6">Edit Product</Typography>
+          <TextField 
+            label="Name" 
+            fullWidth 
+            margin="normal" 
+            value={editingProduct.name} 
+            onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} 
+          />
+          <TextField 
+            label="Description" 
+            fullWidth 
+            margin="normal" 
+            value={editingProduct.description} 
+            onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} 
+          />
+          <TextField 
+            label="Price" 
+            type="number" 
+            fullWidth 
+            margin="normal" 
+            value={editingProduct.price} 
+            onChange={(e) => setEditingProduct({ ...editingProduct, price: Number(e.target.value) })} 
+          />
+          <TextField 
+            label="Stock" 
+            type="number" 
+            fullWidth 
+            margin="normal" 
+            value={editingProduct.stock} 
+            onChange={(e) => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} 
+          />
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={handleUpdateProduct} 
+            disabled={isLoading}
+            style={{ marginTop: "10px", marginRight: "10px" }}
+          >
+            {isLoading ? "Updating..." : "Update"}
+          </Button>
+          <Button 
+            variant="outlined" 
+            onClick={() => setEditingProduct(null)} 
+            disabled={isLoading}
+            style={{ marginTop: "10px" }}
+          >
+            Cancel
+          </Button>
         </Paper>
       )}
     </Container>
