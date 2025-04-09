@@ -1,5 +1,3 @@
-import FavoriteIcon from "@mui/icons-material/Favorite";
-import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import {
   Box,
   Button,
@@ -9,13 +7,13 @@ import {
   CircularProgress,
   Container,
   Typography,
+  Snackbar,
 } from "@mui/material";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import axios, { AxiosError } from "axios";
 import { useEffect, useState } from "react";
-import Slider from "react-slick";
-import "slick-carousel/slick/slick-theme.css";
-import "slick-carousel/slick/slick.css";
 import { useNavigate } from "react-router-dom";
+import ImageSlider from "../components/ImageSlider";
 
 interface DiscountedProduct {
   id: number;
@@ -42,21 +40,21 @@ interface CartItem {
 interface ApiErrorResponse {
   message?: string;
   error?: string;
-  // 필요한 다른 필드 추가
 }
 
-// 환경 변수 사용
-const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
-const IMAGE_BASE_URL = import.meta.env.VITE_APP_IMAGE_BASE_URL || "http://localhost:8092/uploads/";
+const API_BASE_URL =
+  import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const IMAGE_BASE_URL =
+  import.meta.env.VITE_APP_IMAGE_BASE_URL || "http://localhost:8092/uploads/";
 const FALLBACK_IMAGE = "/images/fallback-product.jpg";
 
 export default function MainPage() {
   const [products, setProducts] = useState<DiscountedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cart, setCart] = useState<number[]>([]);
   const [filterCategory, setFilterCategory] = useState<string>("전체");
   const [pageLoading, setPageLoading] = useState<boolean>(true);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
   const navigate = useNavigate();
 
   const getImageSrc = (image: string | undefined): string => {
@@ -71,10 +69,13 @@ export default function MainPage() {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const res = await axios.get<DiscountedProduct[]>(`${API_BASE_URL}/api/products/discounted-products`, {
-          withCredentials: true,
-        });
-        
+        const res = await axios.get<DiscountedProduct[]>(
+          `${API_BASE_URL}/api/products/discounted-products`,
+          {
+            withCredentials: true,
+          }
+        );
+
         if (Array.isArray(res.data)) {
           const formattedProducts = res.data.map((item) => ({
             ...item,
@@ -89,7 +90,10 @@ export default function MainPage() {
         }
       } catch (err) {
         const axiosError = err as AxiosError<ApiErrorResponse>;
-        setError(axiosError.response?.data?.message || "상품을 불러오는데 실패했습니다. 나중에 다시 시도해주세요.");
+        setError(
+          axiosError.response?.data?.message ||
+            "상품을 불러오는데 실패했습니다. 나중에 다시 시도해주세요."
+        );
         setProducts([]);
       } finally {
         setLoading(false);
@@ -108,32 +112,31 @@ export default function MainPage() {
     야구화: "shoes",
   };
 
-  const toggleCart = async (productId: number, e: React.MouseEvent) => {
+  const addToCart = async (productId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
-    
+
     if (pageLoading || !isLoggedIn) {
-      if (!isLoggedIn && window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
+      if (
+        !isLoggedIn &&
+        window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")
+      ) {
         navigate("/login");
       }
       return;
     }
-    
+
     try {
-      if (cart.includes(productId)) {
-        setCart(cart.filter((id) => id !== productId));
-      } else {
-        await axios.post(
-          `${API_BASE_URL}/api/cart/add`,
-          { productId },
-          { withCredentials: true }
-        );
-        setCart([...cart, productId]);
-      }
+      await axios.post(
+        `${API_BASE_URL}/api/cart/add`,
+        { productId },
+        { withCredentials: true }
+      );
+      setSnackbarOpen(true);
     } catch (err) {
-      console.error(err)
-      alert("장바구니 처리에 실패했습니다.");
+      console.error(err);
+      alert("장바구니 추가에 실패했습니다.");
     }
   };
 
@@ -141,7 +144,7 @@ export default function MainPage() {
     e.stopPropagation();
     const nickname = localStorage.getItem("nickname");
     const isLoggedIn = !!nickname;
-    
+
     if (!isLoggedIn) {
       if (window.confirm("로그인 후 이용 가능합니다. 로그인 하시겠습니까?")) {
         navigate("/login");
@@ -153,7 +156,10 @@ export default function MainPage() {
       id: product.id,
       productId: product.id,
       name: product.name,
-      price: calculateDiscountedPrice(product.originalPrice, product.discountPercent),
+      price: calculateDiscountedPrice(
+        product.originalPrice,
+        product.discountPercent
+      ),
       image: product.image,
       quantity: 1,
     };
@@ -168,27 +174,18 @@ export default function MainPage() {
   const filteredProducts =
     filterCategory === "전체"
       ? products
-      : products.filter((product) => product.category === categoryMapping[filterCategory]);
-
-  const sliderSettings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 3000,
-  };
-
-  const sliderImages = [
-    "https://cdn-pro-web-213-28.cdn-nhncommerce.com/yayongsa11_godomall_com/data/skin/front/designbook_thegrandR/img/banner/b028cd1af60d8b4d77044205c8d7ffd5_41549.jpg",
-    "https://cdn-pro-web-213-28.cdn-nhncommerce.com/yayongsa11_godomall_com/data/skin/front/designbook_thegrandR/img/banner/a3f17675fc39136bb73107ff7d60183f_24881.png",
-    "https://cdn-pro-web-213-28.cdn-nhncommerce.com/yayongsa11_godomall_com/data/skin/front/designbook_thegrandR/img/banner/fde30ff57202cd01e4bebeed15a1d871_15876.jpg",
-  ];
+      : products.filter(
+          (product) => product.category === categoryMapping[filterCategory]
+        );
 
   if (pageLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="80vh"
+      >
         <Typography variant="h6">페이지 로딩 중...</Typography>
       </Box>
     );
@@ -205,30 +202,16 @@ export default function MainPage() {
       }}
     >
       <Container maxWidth="lg">
-        <Box sx={{ mt: 15, mb: 4 }}>
-          <Slider {...sliderSettings}>
-            {sliderImages.map((image, index) => (
-              <div key={index}>
-                <img
-                  src={image}
-                  alt={`슬라이드 ${index + 1}`}
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    maxHeight: "400px",
-                    objectFit: "contain",
-                    borderRadius: "10px",
-                  }}
-                />
-              </div>
-            ))}
-          </Slider>
-        </Box>
-
+        <ImageSlider />
         <Typography variant="h3" gutterBottom textAlign="center">
           ⚾ 야구 용품 전문 쇼핑몰
         </Typography>
-        <Typography variant="h6" color="textSecondary" paragraph textAlign="center">
+        <Typography
+          variant="h6"
+          color="textSecondary"
+          paragraph
+          textAlign="center"
+        >
           최고의 야구 용품을 만나보세요!
         </Typography>
 
@@ -241,12 +224,32 @@ export default function MainPage() {
         )}
 
         <Box sx={{ mt: 4, mb: 6 }}>
-          <Typography variant="h4" color="primary" gutterBottom textAlign="center">
+          <Typography
+            variant="h4"
+            color="primary"
+            gutterBottom
+            textAlign="center"
+          >
             파격 할인중
           </Typography>
 
-          <Box sx={{ mb: 3, display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-            {["전체", "야구배트", "배팅장갑", "보호장비", "글러브", "야구화"].map((category) => (
+          <Box
+            sx={{
+              mb: 3,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 1,
+              justifyContent: "center",
+            }}
+          >
+            {[
+              "전체",
+              "야구배트",
+              "배팅장갑",
+              "보호장비",
+              "글러브",
+              "야구화",
+            ].map((category) => (
               <Button
                 key={category}
                 variant={filterCategory === category ? "contained" : "outlined"}
@@ -302,7 +305,7 @@ export default function MainPage() {
                         (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
                       }}
                     />
-                    <CardContent sx={{ flexGrow: 1 }}>
+                    <CardContent sx={{ flexGrow: 1, textAlign: "center" }}>
                       <Typography
                         variant="h6"
                         component="div"
@@ -316,42 +319,40 @@ export default function MainPage() {
                       >
                         {product.name}
                       </Typography>
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography color="error">
+                      <Box mb={2}>
+                        <Typography color="error" variant="body2">
                           {product.discountPercent}% 할인
                         </Typography>
                         <Typography
                           color="text.secondary"
+                          variant="body2"
                           sx={{ textDecoration: "line-through" }}
                         >
                           {product.originalPrice.toLocaleString()}원
                         </Typography>
+                        <Typography variant="h6" color="primary">
+                          {calculateDiscountedPrice(
+                            product.originalPrice,
+                            product.discountPercent
+                          ).toLocaleString()}
+                          원
+                        </Typography>
                       </Box>
-                      <Typography variant="h6" color="primary" mb={2}>
-                        {calculateDiscountedPrice(
-                          product.originalPrice,
-                          product.discountPercent
-                        ).toLocaleString()}
-                        원
-                      </Typography>
-                      <Box display="flex" justifyContent="space-between">
+                      <Box display="flex" justifyContent="center" gap={1}>
                         <Button
                           variant="contained"
                           color="primary"
                           onClick={(e) => handlePurchase(product, e)}
-                          sx={{ flex: 1, mr: 1 }}
+                          sx={{ flex: 1, maxWidth: "150px" }}
                         >
                           구매
                         </Button>
                         <Button
-                          onClick={(e) => toggleCart(product.id, e)}
+                          variant="outlined"
+                          onClick={(e) => addToCart(product.id, e)}
                           sx={{ minWidth: "auto", p: 1 }}
                         >
-                          {cart.includes(product.id) ? (
-                            <FavoriteIcon color="error" />
-                          ) : (
-                            <FavoriteBorderIcon />
-                          )}
+                          <ShoppingCartIcon />
                         </Button>
                       </Box>
                     </CardContent>
@@ -366,6 +367,14 @@ export default function MainPage() {
           )}
         </Box>
       </Container>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        message="해당 상품이 장바구니에 추가 되었습니다!"
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
     </Box>
   );
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Container,
   Typography,
   Table,
   TableBody,
@@ -184,20 +183,47 @@ const AdminProductList: React.FC = () => {
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 12 }}>
+      <Box sx={{ 
+        flex: 1, 
+        pb: "80px",
+        maxWidth: {
+          xs: "375px",
+          sm: "600px",
+          md: "900px",
+          lg: "1200px",
+          xl: "1536px",
+        },
+        width: "100%",
+        mx: "auto",
+        mt: 12
+      }}>
         <Alert severity="error">{error}</Alert>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 12, mb: 5, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ 
+      flex: 1, 
+      pb: "80px",
+      maxWidth: {
+        xs: "375px",
+        sm: "600px",
+        md: "900px",
+        lg: "1200px",
+        xl: "1536px",
+      },
+      width: "100%",
+      mx: "auto",
+      mt: 12,
+      mb: 5
+    }}>
+      <Typography variant="h4" gutterBottom align="center">
         상품 관리
       </Typography>
 
-      <Box sx={{ mb: 3, width: '100%', display: 'flex', justifyContent: 'center' }}>
-        <Grid container spacing={2} justifyContent="center">
+      <Box sx={{ mb: 3, width: "100%" }}>
+        <Grid container spacing={2}>
           <Grid item xs={12} sm={4}>
             <TextField
               label="상품명 또는 브랜드 검색"
@@ -243,16 +269,22 @@ const AdminProductList: React.FC = () => {
         </Grid>
       </Box>
 
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => navigate("/admin/products/new")}
-        sx={{ mb: 3 }}
-      >
-        상품 등록
-      </Button>
+      <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => navigate("/admin/products/new")}
+        >
+          상품 등록
+        </Button>
+      </Box>
 
-      <TableContainer component={Paper} sx={{ width: 1300, minHeight: 500, maxHeight: 400, overflow: "auto" }}>
+      <TableContainer component={Paper} sx={{ 
+        width: "100%", 
+        minHeight: 500, 
+        maxHeight: 400, 
+        overflow: "auto" 
+      }}>
         <Table stickyHeader>
           <TableHead>
             <TableRow>
@@ -327,7 +359,13 @@ const AdminProductList: React.FC = () => {
       <Box sx={{ mt: 12 }}>
         <Grid container spacing={4} justifyContent="center">
           <Grid item xs={12} sm={6}>
-            <Card sx={{ minHeight: 120, minWidth: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Card sx={{ 
+              minHeight: 120, 
+              width: "100%",
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center" 
+            }}>
               <CardContent>
                 <Typography variant="h6" align="center">
                   총 재고 수량
@@ -339,7 +377,13 @@ const AdminProductList: React.FC = () => {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <Card sx={{ minHeight: 120, minWidth: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Card sx={{ 
+              minHeight: 120, 
+              width: "100%",
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center" 
+            }}>
               <CardContent>
                 <Typography variant="h6" align="center">
                   총 재고 가격
@@ -352,7 +396,7 @@ const AdminProductList: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

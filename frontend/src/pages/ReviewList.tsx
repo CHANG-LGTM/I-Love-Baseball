@@ -321,7 +321,7 @@ export default function ReviewList() {
   return (
     <Box
       sx={{
-        padding: { xs: 2, md: 15 },
+        padding: { xs: 2, md: 12 },
         marginTop: 8,
         maxWidth: "900px",
         margin: "0 auto",
@@ -333,6 +333,7 @@ export default function ReviewList() {
         sx={{
           fontWeight: "bold",
           mb: 5,
+          mt: 8,
           color: "#1976d2",
           textAlign: "center",
           textShadow: "1px 1px 2px rgba(0,0,0,0.1)",

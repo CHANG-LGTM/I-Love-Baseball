@@ -5,20 +5,20 @@ const Footer = () => {
     <Box
       component="footer"
       sx={{
-        backgroundColor: "white", // 배경 투명
-        color: "#555", // 글씨 색상 (이미지와 유사한 회색 톤)
-        padding: "8px 16px", // 여백 줄임
-        width: "100%", // 전체 너비
-        borderTop: "0.5px solid #ddd", // 상단 경계선 얇게 조정
+        backgroundColor: "white",
+        color: "#555",
+        padding: "8px 16px",
+        width: "100%",
+        borderTop: "0.5px solid #ddd",
         display: "flex",
         flexDirection: { xs: "column", sm: "row" },
-        justifyContent: "space-between", // 좌우로 정보 배치
+        justifyContent: "space-between",
         alignItems: "center",
         gap: 1,
-        position: "fixed", // 항상 하단 고정
-        bottom: 0,
-        left: 0,
-        zIndex: 1000,
+        // position: "fixed", // 제거
+        // bottom: 0, // 제거
+        // left: 0, // 제거
+        // zIndex: 1000, // 제거
       }}
     >
       {/* 좌측 정보 */}

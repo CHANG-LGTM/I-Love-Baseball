@@ -18,6 +18,7 @@ import ReviewManagement from "./AdminPage/ReviewManagement"; // 추가
 import ShippingManagement from "./AdminPage/ShippingManagement"; // 추가
 import ReviewList from "./pages/ReviewList";
 import WriteReviews from "./pages/WriteReviews";
+import ShippingPage from "./pages/ShippingPage";
 
 
 const RoutesConfig = () => {
@@ -37,6 +38,7 @@ const RoutesConfig = () => {
       <Route path="/write-review" element={<ProtectedRoute element={<WriteReviews />} />} />
       <Route path="/review-list" element={<ReviewList />} />
       <Route path="/" element={<ReviewList />} /> {/* 기본 경로를 ReviewList로 설정 */}
+      <Route path="/shipping" element={<ShippingPage />} />
       
       {/* 관리자 경로 */}
       <Route
