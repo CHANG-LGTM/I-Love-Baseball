@@ -1,7 +1,5 @@
 package com.company.baseballshop.model;
 
-
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -25,6 +23,9 @@ public class ReviewComment {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
+
+    @Column(name = "user_email", nullable = false)
+    private String userEmail; // 관리자의 이메일
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

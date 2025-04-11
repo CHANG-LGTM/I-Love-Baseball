@@ -49,7 +49,7 @@ public class Product {
     @UpdateTimestamp
     private Timestamp updatedAt;
 
-    @Column(length = 50, columnDefinition = "VARCHAR(50) DEFAULT 'Unknown'") // brand 필드 추가
+    @Column(length = 50, columnDefinition = "VARCHAR(50) DEFAULT 'Unknown'")
     private String brand;
 
     // Getters and Setters
@@ -77,8 +77,20 @@ public class Product {
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
-
-    // brand 필드에 대한 Getter와 Setter 추가
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }
+
+    // imageUrl과 image 필드 연결
+    public void setImageUrl(String imageUrl) {
+        this.image = imageUrl;
+    }
+
+    public String getImageUrl() {
+        return this.image;
+    }
+
+    // discountPrice와 originalPrice 연결
+    public void setDiscountPrice(Integer discountPrice) {
+        this.originalPrice = discountPrice;
+    }
 }

@@ -27,7 +27,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173", "http://localhost:5174", "http://localhost:5175")
+                .allowedOrigins("http://localhost:5173", "http://localhost:5174", "https://baseball.teamace.shop")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowCredentials(true)
                 .maxAge(3600);
@@ -35,10 +35,4 @@ public class WebConfig implements WebMvcConfigurer {
 }
 
 // 🔥 `favicon.ico` 요청을 무시하는 컨트롤러 추가
-@RestController
-class FaviconController {
-    @RequestMapping("favicon.ico")
-    public void favicon() {
-        // 요청을 무시
-    }
-}
+

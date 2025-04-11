@@ -5,6 +5,7 @@ import com.company.baseballshop.dto.Role;
 import com.company.baseballshop.model.User;
 import com.company.baseballshop.repository.UserRepository;
 import com.company.baseballshop.security.JwtTokenProvider;
+import com.company.baseballshop.service.AuthService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,8 +30,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "http://localhost:5175"}, allowCredentials = "true")
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "https://baseball.teamace.shop"}, allowCredentials = "true")
 public class AuthController {
+
 
     @Autowired
     private UserRepository userRepository;
@@ -40,6 +42,12 @@ public class AuthController {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @PostMapping("/register")
     public ResponseEntity<?> signup(@RequestBody AuthRequest authRequest) {
@@ -63,8 +71,18 @@ public class AuthController {
         log.info("회원가입 완료! 저장된 유저 정보: {}", user);
         return ResponseEntity.ok("회원가입 성공");
     }
+    @GetMapping("/check-email")
+    public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestParam String email) {
+        boolean isAvailable = !authService.isEmailTaken(email);
+        return ResponseEntity.ok(Map.of("available", isAvailable));
+    }
 
-    @PostMapping("/login")
+    @GetMapping("/check-nickname")
+    public ResponseEntity<Map<String, Boolean>> checkNickname(@RequestParam String nickname) {
+        boolean isAvailable = !authService.isNicknameTaken(nickname);
+        return ResponseEntity.ok(Map.of("available", isAvailable));
+    }    @PostMapping("/login")
+
     public ResponseEntity<?> login(@RequestBody AuthRequest authRequest, HttpServletResponse response) {
         Optional<User> foundUser = userRepository.findByEmail(authRequest.getEmail());
 

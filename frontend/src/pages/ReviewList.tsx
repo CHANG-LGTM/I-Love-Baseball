@@ -40,6 +40,7 @@ interface ReviewComment {
   content: string;
   createdAt: string;
   updatedAt: string;
+  nickname: string; // 관리자 닉네임 추가
 }
 
 interface ApiErrorResponse {
@@ -50,7 +51,7 @@ interface ApiErrorResponse {
 // 환경 변수 설정
 const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
 const REVIEW_IMAGE_BASE_URL = import.meta.env.VITE_APP_REVIEW_IMAGE_BASE_URL || "http://localhost:8092/review_img/";
-const FALLBACK_IMAGE = import.meta.env.VITE_APP_FALLBACK_IMAGE || "/images/ fallback-image.jpg";
+const FALLBACK_IMAGE = import.meta.env.VITE_APP_FALLBACK_IMAGE || "/images/fallback-image.jpg";
 
 const StyledCard = styled(Card)(({ theme }) => ({
   marginBottom: theme.spacing(3),
@@ -202,6 +203,25 @@ export default function ReviewList() {
     fetchReviews();
   }, [nickname]);
 
+  // 성공/에러 메시지가 3초 후 사라지도록 설정
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -311,11 +331,6 @@ export default function ReviewList() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleCloseSnackbar = () => {
-    setError(null);
-    setSuccess(null);
   };
 
   return (
@@ -587,6 +602,27 @@ export default function ReviewList() {
                             />
                           </Box>
                         )}
+                        {/* 관리자 댓글 표시 */}
+                        <Divider sx={{ my: 2, borderColor: "rgba(0,0,0,0.1)" }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: "bold", color: "#1976d2", mb: 1 }}>
+                          관리자 답변
+                        </Typography>
+                        {r.comments && r.comments.length > 0 ? (
+                          r.comments.map((comment) => (
+                            <Box key={comment.id} sx={{ mb: 1, pl: 2, borderLeft: "2px solid #1976d2" }}>
+                              <Typography variant="body2" sx={{ color: "#555" }}>
+                                <strong>{comment.nickname}:</strong> {comment.content}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {format(new Date(comment.createdAt), "yyyy년 MM월 dd일 HH:mm:ss")}
+                              </Typography>
+                            </Box>
+                          ))
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            아직 관리자 답변이 없습니다.
+                          </Typography>
+                        )}
                       </CardContent>
                     </>
                   )}
@@ -599,12 +635,9 @@ export default function ReviewList() {
 
       <Snackbar
         open={!!error || !!success}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
-          onClose={handleCloseSnackbar}
           severity={error ? "error" : "success"}
           sx={{ width: "100%" }}
         >

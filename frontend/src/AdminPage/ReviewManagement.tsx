@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -11,9 +12,15 @@ import {
   Divider,
   Fade,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
 } from "@mui/material";
 import { Delete, Send } from "@mui/icons-material";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useAuth } from "../AdminPage/AuthContext";
 import { format } from "date-fns";
 import { styled } from "@mui/material/styles";
@@ -33,6 +40,12 @@ interface ReviewComment {
   content: string;
   createdAt: string;
   updatedAt: string;
+  nickname: string;
+}
+
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
@@ -69,9 +82,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   },
 }));
 
-// 안전한 JSON 파싱을 위한 헬퍼 함수
 const safeParseReviews = (data: unknown): Review[] => {
-  // 이미 배열이고 Review 형식에 맞는지 확인
   if (Array.isArray(data) && data.every(item => 
     typeof item?.id === 'number' && 
     typeof item?.nickname === 'string'
@@ -79,17 +90,15 @@ const safeParseReviews = (data: unknown): Review[] => {
     return data;
   }
 
-  // 문자열인 경우 파싱 시도
   if (typeof data === 'string') {
     try {
       const parsed = JSON.parse(data);
-      return safeParseReviews(parsed); // 재귀적으로 확인
+      return safeParseReviews(parsed);
     } catch {
       return [];
     }
   }
 
-  // 단일 객체인 경우 배열로 감싸기
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     return [data as Review];
   }
@@ -98,12 +107,15 @@ const safeParseReviews = (data: unknown): Review[] => {
 };
 
 export default function ReviewManagement() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, checkAuth } = useAuth();
+  const navigate = useNavigate();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [openDialog, setOpenDialog] = useState<boolean>(false);
+  const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
 
   const getImageSrc = (image: string | undefined): string => {
     if (!image) return "/path/to/fallback-image.jpg";
@@ -115,66 +127,105 @@ export default function ReviewManagement() {
     return `${BASE_IMAGE_URL}${encodedFileName}`;
   };
 
+  // 성공 메시지가 표시된 후 3초 뒤에 사라지도록 설정
   useEffect(() => {
-    const fetchReviews = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/reviews`, {
-          withCredentials: true,
-          headers: { Accept: "application/json" },
-        });
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 3000); // 3초 후 메시지 제거
 
-        const parsedReviews = safeParseReviews(response.data);
-        setReviews(parsedReviews.map(review => ({
-          ...review,
-          comments: review.comments || []
-        })));
-      } catch (err: unknown) {
-        if (axios.isAxiosError(err)) {
-          setError(err.response?.data?.message || 
-                  err.response?.data?.error || 
-                  "리뷰를 불러오는 데 실패했습니다.");
-        } else if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("알 수 없는 오류가 발생했습니다.");
-        }
-        setReviews([]);
-      } finally {
-        setLoading(false);
+      return () => clearTimeout(timer); // 컴포넌트 언마운트 시 타이머 정리
+    }
+  }, [success]);
+
+  const fetchReviews = useCallback(async () => {
+    setLoading(true);
+    try {
+      const isAuthenticated = await checkAuth();
+      if (!isAuthenticated || !isAdmin) {
+        setError("인증되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
       }
-    };
-    fetchReviews();
-  }, []);
 
-  const handleDelete = async (id: number) => {
+      const response = await axios.get(`${API_BASE_URL}/api/reviews`, {
+        withCredentials: true,
+        headers: { Accept: "application/json" },
+      });
+
+      const parsedReviews = safeParseReviews(response.data);
+      setReviews(parsedReviews.map(review => ({
+        ...review,
+        comments: review.comments || []
+      })));
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      if (axiosError.response?.status === 401) {
+        setError("인증되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+        setTimeout(() => navigate("/login"), 2000);
+      } else {
+        setError(
+          axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
+          "리뷰를 불러오는 데 실패했습니다."
+        );
+        setReviews([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, checkAuth, isAdmin]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (selectedReviewId === null) return;
+
+    try {
+      const response = await axios.delete(`${API_BASE_URL}/api/reviews/${selectedReviewId}`, {
+        withCredentials: true,
+      });
+      
+      if (response.status === 403) {
+        setError("본인이 작성한 리뷰이거나 관리자만 삭제할 수 있습니다.");
+        return;
+      }
+      
+      setReviews(prev => prev.filter(r => r.id !== selectedReviewId));
+      setSuccess("리뷰가 성공적으로 삭제되었습니다.");
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      if (axiosError.response?.status === 401) {
+        setError("인증되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+        setTimeout(() => navigate("/login"), 2000);
+      } else if (axiosError.response?.status === 403) {
+        setError("본인이 작성한 리뷰이거나 관리자만 삭제할 수 있습니다.");
+      } else {
+        setError(
+          axiosError.response?.data?.message ||
+          "리뷰 삭제에 실패했습니다."
+        );
+      }
+    } finally {
+      setOpenDialog(false);
+      setSelectedReviewId(null);
+    }
+  }, [selectedReviewId, navigate]);
+
+  const handleDelete = useCallback((id: number) => {
     if (!isAdmin) {
       setError("관리자만 리뷰를 삭제할 수 있습니다.");
       return;
     }
 
-    try {
-      const response = await axios.delete(`${API_BASE_URL}/api/reviews/${id}`, {
-        data: { nickname: "", isAdmin: true },
-      });
-      
-      if (response.status === 403) {
-        setError("관리자만 리뷰를 삭제할 수 있습니다.");
-        return;
-      }
-      
-      setReviews(prev => prev.filter(r => r.id !== id));
-      setSuccess("리뷰가 성공적으로 삭제되었습니다.");
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message || "리뷰 삭제에 실패했습니다.");
-      } else {
-        setError("리뷰 삭제 중 오류가 발생했습니다.");
-      }
-    }
+    setSelectedReviewId(id);
+    setOpenDialog(true);
+  }, [isAdmin]);
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setSelectedReviewId(null);
   };
 
-  const handleAddComment = async (reviewId: number) => {
+  const handleAddComment = useCallback(async (reviewId: number) => {
     if (!isAdmin) {
       setError("관리자만 댓글을 작성할 수 있습니다.");
       return;
@@ -187,9 +238,17 @@ export default function ReviewManagement() {
     }
 
     try {
+      const isAuthenticated = await checkAuth();
+      if (!isAuthenticated || !isAdmin) {
+        setError("인증되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+
       const response = await axios.post<ReviewComment>(
         `${API_BASE_URL}/api/reviews/${reviewId}/comments`,
-        { content: content.trim() }
+        { content: content.trim() },
+        { withCredentials: true }
       );
       
       setReviews(prev =>
@@ -202,17 +261,26 @@ export default function ReviewManagement() {
       setCommentInputs(prev => ({ ...prev, [reviewId]: "" }));
       setSuccess("댓글이 성공적으로 작성되었습니다.");
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message || "댓글 작성에 실패했습니다.");
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      if (axiosError.response?.status === 401) {
+        setError("인증되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+        setTimeout(() => navigate("/login"), 2000);
       } else {
-        setError("댓글 작성 중 오류가 발생했습니다.");
+        setError(
+          axiosError.response?.data?.message ||
+          "댓글 작성에 실패했습니다."
+        );
       }
     }
-  };
+  }, [commentInputs, isAdmin, navigate, checkAuth]);
 
   const handleCommentChange = (reviewId: number, value: string) => {
     setCommentInputs(prev => ({ ...prev, [reviewId]: value }));
   };
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   if (loading) {
     return (
@@ -238,7 +306,7 @@ export default function ReviewManagement() {
         sx={{
           fontWeight: "bold",
           mb: 5,
-          mt:8,
+          mt: 8,
           color: "#1976d2",
           textAlign: "center",
           textShadow: "1px 1px 2px rgba(0,0,0,0.1)",
@@ -248,15 +316,19 @@ export default function ReviewManagement() {
       </Typography>
       
       {error && (
-        <Typography color="error" sx={{ mt: 2, textAlign: "center" }}>
-          {error}
-        </Typography>
+        <Fade in={true} timeout={500}>
+          <Typography color="error" sx={{ mt: 2, textAlign: "center" }}>
+            {error}
+          </Typography>
+        </Fade>
       )}
       
       {success && (
-        <Typography color="success.main" sx={{ mt: 2, textAlign: "center" }}>
-          {success}
-        </Typography>
+        <Fade in={true} timeout={500}>
+          <Typography color="success.main" sx={{ mt: 2, textAlign: "center" }}>
+            {success}
+          </Typography>
+        </Fade>
       )}
       
       <Box sx={{ mt: 4 }}>
@@ -317,7 +389,7 @@ export default function ReviewManagement() {
                     review.comments.map(comment => (
                       <Box key={comment.id} sx={{ mb: 1, pl: 2, borderLeft: "2px solid #1976d2" }}>
                         <Typography variant="body2" sx={{ color: "#555" }}>
-                          {comment.content}
+                          <strong>{comment.nickname}:</strong> {comment.content}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {format(new Date(comment.createdAt), "yyyy년 MM월 dd일 HH:mm:ss")}
@@ -350,6 +422,31 @@ export default function ReviewManagement() {
           ))
         )}
       </Box>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          {"리뷰 삭제 확인"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            정말로 이 리뷰를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} color="primary">
+            취소
+          </Button>
+          <Button onClick={handleDeleteConfirm} color="error" autoFocus>
+            삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

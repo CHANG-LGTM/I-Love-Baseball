@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import axios, { AxiosError } from "axios";
 import { Product } from "../types/Product";
+import { useAuth } from "./AuthContext";
 import debounce from "lodash/debounce";
 
 interface ApiErrorResponse {
@@ -52,11 +53,28 @@ const AdminProductList: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [brandFilter, setBrandFilter] = useState<string>("");
   const navigate = useNavigate();
+  const { isAdmin, checkAuth } = useAuth();
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
+      const isAuthenticated = await checkAuth();
+      if (!isAuthenticated || !isAdmin) {
+        navigate("/login");
+        return;
+      }
+
+      // 요청 파라미터 구성
+      const params = new URLSearchParams();
+      if (categoryFilter) {
+        params.append("category", categoryFilter);
+      }
+      if (brandFilter) {
+        params.append("brand", brandFilter);
+      }
+
       const response = await axios.get<Product[]>(`${API_BASE_URL}/api/admin/products`, {
+        params,
         withCredentials: true,
       });
       setProducts(response.data);
@@ -64,19 +82,26 @@ const AdminProductList: React.FC = () => {
       setError(null);
     } catch (err) {
       const axiosError = err as AxiosError<ApiErrorResponse>;
-      setError(
-        axiosError.response?.data?.message || 
-        axiosError.response?.data?.error || 
-        "상품 목록을 불러오는데 실패했습니다."
-      );
+      if (axiosError.response?.status === 401) {
+        setError("인증되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+        setTimeout(() => navigate("/login"), 2000);
+      } else if (axiosError.response?.status === 400) {
+        setError("잘못된 요청입니다. 필수 파라미터를 확인해주세요.");
+      } else {
+        setError(
+          axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
+          "상품 목록을 불러오는데 실패했습니다."
+        );
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [navigate, checkAuth, isAdmin, categoryFilter, brandFilter]);
 
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+  }, [fetchProducts, categoryFilter, brandFilter]); // 필터 변경 시 요청 재실행
 
   const debouncedSetSearchTerm = useMemo(
     () => debounce((value: string) => setSearchTerm(value), 300),
@@ -102,16 +127,9 @@ const AdminProductList: React.FC = () => {
       );
     }
 
-    if (categoryFilter) {
-      result = result.filter((product) => product.category === categoryFilter);
-    }
-
-    if (brandFilter) {
-      result = result.filter((product) => product.brand === brandFilter);
-    }
-
+    // 서버에서 이미 필터링되었으므로 추가 필터링 불필요
     return result;
-  }, [searchTerm, categoryFilter, brandFilter, products]);
+  }, [searchTerm, products]);
 
   useEffect(() => {
     setFilteredProducts(filtered);
@@ -127,13 +145,13 @@ const AdminProductList: React.FC = () => {
     );
   }, [filteredProducts]);
 
-  const categories = useMemo(() => 
-    Array.from(new Set(products.map((product) => product.category).filter(Boolean))), 
+  const categories = useMemo(() =>
+    Array.from(new Set(products.map((product) => product.category).filter(Boolean))),
     [products]
   );
 
-  const brands = useMemo(() => 
-    Array.from(new Set(products.map((product) => product.brand).filter(Boolean))), 
+  const brands = useMemo(() =>
+    Array.from(new Set(products.map((product) => product.brand).filter(Boolean))),
     [products]
   );
 
@@ -146,13 +164,18 @@ const AdminProductList: React.FC = () => {
         setProducts((prev) => prev.filter((product) => product.id !== id));
       } catch (err) {
         const axiosError = err as AxiosError<ApiErrorResponse>;
-        setError(
-          axiosError.response?.data?.message || 
-          "상품 삭제에 실패했습니다."
-        );
+        if (axiosError.response?.status === 401) {
+          setError("인증되지 않은 사용자입니다. 로그인 페이지로 이동합니다.");
+          setTimeout(() => navigate("/login"), 2000);
+        } else {
+          setError(
+            axiosError.response?.data?.message ||
+            "상품 삭제에 실패했습니다."
+          );
+        }
       }
     }
-  }, []);
+  }, [navigate]);
 
   const getImageSrc = useCallback((image?: string): string => {
     if (!image) return "/path/to/fallback-image.jpg";
@@ -183,8 +206,8 @@ const AdminProductList: React.FC = () => {
 
   if (error) {
     return (
-      <Box sx={{ 
-        flex: 1, 
+      <Box sx={{
+        flex: 1,
         pb: "80px",
         maxWidth: {
           xs: "375px",
@@ -203,8 +226,8 @@ const AdminProductList: React.FC = () => {
   }
 
   return (
-    <Box sx={{ 
-      flex: 1, 
+    <Box sx={{
+      flex: 1,
       pb: "80px",
       maxWidth: {
         xs: "375px",
@@ -279,11 +302,11 @@ const AdminProductList: React.FC = () => {
         </Button>
       </Box>
 
-      <TableContainer component={Paper} sx={{ 
-        width: "100%", 
-        minHeight: 500, 
-        maxHeight: 400, 
-        overflow: "auto" 
+      <TableContainer component={Paper} sx={{
+        width: "100%",
+        minHeight: 500,
+        maxHeight: 400,
+        overflow: "auto"
       }}>
         <Table stickyHeader>
           <TableHead>
@@ -359,12 +382,12 @@ const AdminProductList: React.FC = () => {
       <Box sx={{ mt: 12 }}>
         <Grid container spacing={4} justifyContent="center">
           <Grid item xs={12} sm={6}>
-            <Card sx={{ 
-              minHeight: 120, 
+            <Card sx={{
+              minHeight: 120,
               width: "100%",
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center" 
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
             }}>
               <CardContent>
                 <Typography variant="h6" align="center">
@@ -377,12 +400,12 @@ const AdminProductList: React.FC = () => {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <Card sx={{ 
-              minHeight: 120, 
+            <Card sx={{
+              minHeight: 120,
               width: "100%",
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center" 
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
             }}>
               <CardContent>
                 <Typography variant="h6" align="center">

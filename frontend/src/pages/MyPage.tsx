@@ -13,12 +13,6 @@ import {
   ListItemText,
   Divider,
   Paper,
-  Table,
-  TableContainer,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
   CircularProgress,
   Alert,
   Rating,
@@ -28,18 +22,38 @@ import {
   CardActions,
   AppBar,
   Toolbar,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import RateReviewIcon from "@mui/icons-material/RateReview";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PersonIcon from "@mui/icons-material/Person";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { format } from "date-fns";
 
 interface Review {
   id: number;
   productName: string;
   rating: number;
   content: string;
+  imageUrl?: string;
   createdAt: string;
+  updatedAt: string;
+  comments?: ReviewComment[];
+}
+
+interface ReviewComment {
+  id: number;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  nickname: string;
 }
 
 interface ApiErrorResponse {
@@ -48,6 +62,8 @@ interface ApiErrorResponse {
 }
 
 const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
+const REVIEW_IMAGE_BASE_URL = import.meta.env.VITE_APP_REVIEW_IMAGE_BASE_URL || "http://localhost:8092/review_img/";
+const FALLBACK_IMAGE = import.meta.env.VITE_APP_FALLBACK_IMAGE || "/images/fallback-image.jpg";
 
 export default function MyPage() {
   const { nickname } = useAuth();
@@ -56,12 +72,34 @@ export default function MyPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState<boolean>(false);
+  const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!nickname) {
       navigate("/login");
     }
   }, [nickname, navigate]);
+
+  // 성공/에러 메시지 3초 후 사라짐
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const fetchReviews = async () => {
     setLoading(true);
@@ -73,7 +111,12 @@ export default function MyPage() {
           Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
         },
       });
-      setReviews(response.data);
+      const formattedReviews = response.data.map((review) => ({
+        ...review,
+        comments: review.comments || [],
+        imageUrl: review.imageUrl ? getImageSrc(review.imageUrl) : undefined,
+      }));
+      setReviews(formattedReviews);
     } catch (err) {
       const axiosError = err as AxiosError<ApiErrorResponse>;
       if (axiosError.response?.status === 401) {
@@ -93,6 +136,34 @@ export default function MyPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (selectedReviewId === null) return;
+
+    setLoading(true);
+    try {
+      await axios.delete(`${API_BASE_URL}/api/reviews/${selectedReviewId}`, {
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+        data: { nickname, isAdmin: false },
+      });
+      setReviews((prev) => prev.filter((r) => r.id !== selectedReviewId));
+      setSuccess("리뷰가 성공적으로 삭제되었습니다.");
+    } catch (err) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      setError(
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        "리뷰 삭제에 실패했습니다."
+      );
+    } finally {
+      setLoading(false);
+      setOpenDeleteDialog(false);
+      setSelectedReviewId(null);
+    }
+  };
+
   useEffect(() => {
     if (selectedMenu === "reviews" && reviews.length === 0) {
       fetchReviews();
@@ -106,6 +177,16 @@ export default function MyPage() {
     } else if (path) {
       navigate(path);
     }
+  };
+
+  const getImageSrc = (image: string | undefined): string => {
+    if (!image) return FALLBACK_IMAGE;
+    if (image.startsWith("data:image") || image.startsWith("http://") || image.startsWith("https://")) {
+      return image;
+    }
+    const fileName = image.split("/").pop();
+    if (!fileName) return FALLBACK_IMAGE;
+    return `${REVIEW_IMAGE_BASE_URL}${encodeURIComponent(fileName)}`;
   };
 
   const drawerContent = (
@@ -479,60 +560,120 @@ export default function MyPage() {
             >
               내가 작성한 리뷰
             </Typography>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {success}
+              </Alert>
+            )}
             {loading ? (
               <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
                 <CircularProgress />
               </Box>
-            ) : error ? (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
             ) : reviews.length === 0 ? (
               <Typography variant="body1" sx={{ color: "#757575", mt: 2 }}>
                 작성한 리뷰가 없습니다.
               </Typography>
             ) : (
-              <TableContainer component={Paper} sx={{ mt: 2, borderRadius: 2 }}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-                        상품명
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-                        평점
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-                        리뷰 내용
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-                        작성일
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {reviews.map((review) => (
-                      <TableRow key={review.id}>
-                        <TableCell sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {reviews.map((review) => (
+                  <Card key={review.id} sx={{ borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+                    <CardContent>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                        <Typography variant="h6" sx={{ fontWeight: "bold", color: "#333" }}>
                           {review.productName}
-                        </TableCell>
-                        <TableCell>
-                          <Rating value={review.rating} readOnly size="small" />
-                        </TableCell>
-                        <TableCell sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-                          {review.content}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                        </Typography>
+                        <Box>
+                          <IconButton onClick={() => navigate(`/edit-review/${review.id}`)}>
+                            <EditIcon sx={{ color: "#1976d2" }} />
+                          </IconButton>
+                          <IconButton onClick={() => {
+                            setSelectedReviewId(review.id);
+                            setOpenDeleteDialog(true);
+                          }}>
+                            <DeleteIcon sx={{ color: "#ef5350" }} />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                      <Rating value={review.rating} readOnly size="small" sx={{ mb: 1 }} />
+                      <Typography variant="body1" sx={{ color: "#555", mb: 2 }}>
+                        {review.content}
+                      </Typography>
+                      {review.imageUrl && (
+                        <Box sx={{ mt: 2, mb: 2 }}>
+                          <img
+                            src={review.imageUrl}
+                            alt="리뷰 이미지"
+                            style={{
+                              maxWidth: "100%",
+                              maxHeight: "200px",
+                              borderRadius: "8px",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                            }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                            }}
+                          />
+                        </Box>
+                      )}
+                      <Typography variant="caption" color="text.secondary">
+                        작성일: {format(new Date(review.createdAt), "yyyy년 MM월 dd일 HH:mm:ss")}
+                      </Typography>
+                      {/* 관리자 댓글 표시 */}
+                      <Divider sx={{ my: 2, borderColor: "rgba(0,0,0,0.1)" }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: "bold", color: "#1976d2", mb: 1 }}>
+                        관리자 답변
+                      </Typography>
+                      {review.comments && review.comments.length > 0 ? (
+                        review.comments.map((comment) => (
+                          <Box key={comment.id} sx={{ mb: 1, pl: 2, borderLeft: "2px solid #1976d2" }}>
+                            <Typography variant="body2" sx={{ color: "#555" }}>
+                              <strong>{comment.nickname}:</strong> {comment.content}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {format(new Date(comment.createdAt), "yyyy년 MM월 dd일 HH:mm:ss")}
+                            </Typography>
+                          </Box>
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          아직 관리자 답변이 없습니다.
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
             )}
           </Paper>
         )}
+
+        {/* 삭제 확인 다이얼로그 */}
+        <Dialog
+          open={openDeleteDialog}
+          onClose={() => setOpenDeleteDialog(false)}
+          aria-labelledby="delete-dialog-title"
+          aria-describedby="delete-dialog-description"
+        >
+          <DialogTitle id="delete-dialog-title">리뷰 삭제 확인</DialogTitle>
+          <DialogContent>
+            <DialogContentText id="delete-dialog-description">
+              정말로 이 리뷰를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDeleteDialog(false)} color="primary">
+              취소
+            </Button>
+            <Button onClick={handleDelete} color="error" autoFocus>
+              삭제
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Box>
   );

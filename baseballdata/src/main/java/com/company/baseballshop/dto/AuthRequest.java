@@ -1,7 +1,5 @@
 package com.company.baseballshop.dto;
 
-import com.company.baseballshop.dto.Role;
-
 public class AuthRequest {
     private String email;
     private String password;

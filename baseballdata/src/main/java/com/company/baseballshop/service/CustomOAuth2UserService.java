@@ -25,17 +25,30 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         OAuth2User oAuth2User = super.loadUser(userRequest);
         Map<String, Object> attributes = oAuth2User.getAttributes();
+        Long providerId = (Long) attributes.get("id");
 
-        Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.get("kakao_account");
-        String email = (String) kakaoAccount.get("email");
-        if (email == null) {
+        if (providerId == null) {
             throw new OAuth2AuthenticationException("Email not found in OAuth2 response");
         }
+        Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.get("kakao_account");
+        Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
+        String nickname = (String) profile.get("nickname");
+//        String profileImage = (String) profile.get("profile_image_url");
+//        String thumbnail = (String) profile.get("thumbnail_image_url");
 
+
+
+
+
+        String email = providerId + "@kakao.oauth.fakeemail.com";
         User user = userRepository.findByEmail(email)
                 .orElseGet(() -> {
                     User newUser = new User();
                     newUser.setEmail(email);
+                    newUser.setNickname(nickname);
+                    newUser.setPassword("GARA pw");
+                    newUser.setProvider("Kakao");
+                    newUser.setProviderId(providerId + "");
                     newUser.setRole(Role.USER); // Role 설정
                     return userRepository.save(newUser);
                 });

@@ -43,7 +43,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 token, 24 * 60 * 60);
         response.addHeader(HttpHeaders.SET_COOKIE, cookie);
 
-        String redirectUrl = "http://localhost:5173";
+        String redirectUrl = "https://baseball.teamace.shop";
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 }

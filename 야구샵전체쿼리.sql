@@ -1,4 +1,5 @@
 -- 기존 테이블 삭제 (필요 시)
+set foreign_key_checks = 0;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS reviews;
 DROP TABLE IF EXISTS users;
@@ -6,14 +7,11 @@ DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS review_comments;
 DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS products;
+set foreign_key_checks = 1;
 
 
 
-
-
-
-
-
+select * from products;
 
 
 
@@ -102,16 +100,13 @@ CREATE TABLE review_comments (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     review_id BIGINT NOT NULL,
     content TEXT NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_review_comments_review_id
         FOREIGN KEY (review_id) REFERENCES reviews (id)
         ON DELETE CASCADE
 );
-
-
-
-
 
 -- 인덱스 추가 (조회 성능 최적화)
 CREATE INDEX idx_category ON products (category);

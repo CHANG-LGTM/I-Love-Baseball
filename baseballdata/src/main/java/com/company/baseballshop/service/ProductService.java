@@ -2,109 +2,135 @@ package com.company.baseballshop.service;
 
 import com.company.baseballshop.model.Product;
 import com.company.baseballshop.repository.ProductRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ProductService {
 
-    @Autowired
-    private ProductRepository productRepository;
+    private final ProductRepository productRepository;
 
-    public List<Product> getAllProducts() {
-        log.info("모든 상품 조회");
-        return productRepository.findAll();
-    }
+    @Transactional
+    public Product createProduct(String name, String category, String brand, Integer price, Integer discountPrice, String imageUrl, String description, boolean isDiscounted, Integer discountPercent, Integer stock) {
+        log.info("새 상품 생성 요청: name={}, category={}, brand={}", name, category, brand);
 
-    public List<Product> getProductsByCategory(String category) {
-        log.info("카테고리별 상품 조회: category={}", category);
-        List<Product> products = productRepository.findByCategory(category);
-        log.info("조회된 상품 수: {}", products.size());
-        applyDiscounts(products);
-        return products;
-    }
-
-    public List<Product> getProductsByCategoryAndBrand(String category, String brand) {
-        log.info("카테고리와 브랜드로 상품 조회: category={}, brand={}", category, brand);
-        List<Product> products = productRepository.findByCategoryAndBrand(category, brand);
-        log.info("조회된 상품 수: {}", products.size());
-        applyDiscounts(products);
-        return products;
-    }
-
-    public List<Product> getDiscountedProducts() {
-        log.info("할인 상품 조회");
-        List<Product> products = productRepository.findByIsDiscountedTrue();
-        applyDiscounts(products);
-        return products;
-    }
-
-    public Product getProductById(Long id) {
-        log.info("상품 상세 조회: id={}", id);
-        Optional<Product> product = productRepository.findById(id);
-        if (product.isPresent()) {
-            Product p = product.get();
-            applyDiscount(p);
-            return p;
+        // 필수 필드 검증
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("상품명은 필수 입력 항목입니다.");
         }
-        return null;
-    }
-
-    public Product createProduct(Product product) {
-        log.info("새 상품 생성: name={}", product.getName());
-        if (product.getName() == null || product.getName().isEmpty()) {
-            throw new IllegalArgumentException("상품 이름은 필수입니다.");
+        if (category == null || category.trim().isEmpty()) {
+            throw new IllegalArgumentException("카테고리는 필수 입력 항목입니다.");
         }
+        if (brand == null || brand.trim().isEmpty()) {
+            throw new IllegalArgumentException("브랜드는 필수 입력 항목입니다.");
+        }
+        if (price == null || price <= 0) {
+            throw new IllegalArgumentException("가격은 0보다 커야 합니다.");
+        }
+        if (description == null || description.trim().isEmpty()) {
+            throw new IllegalArgumentException("상품 설명은 필수 입력 항목입니다.");
+        }
+        if (stock == null || stock < 0) {
+            throw new IllegalArgumentException("재고는 0 이상이어야 합니다.");
+        }
+
+        Product product = new Product();
+        product.setName(name);
+        product.setCategory(category);
+        product.setBrand(brand);
+        product.setPrice(price);
+        product.setDiscountPrice(isDiscounted && discountPrice != null ? discountPrice : null);
+        product.setDiscountPercent(isDiscounted ? discountPercent : null);
+        product.setImageUrl(imageUrl != null ? imageUrl : ""); // image 필드가 NOT NULL이므로 기본값 설정
+        product.setDescription(description);
+        product.setDiscounted(isDiscounted);
+        product.setStock(stock);
+
         return productRepository.save(product);
     }
 
-    public Product updateProduct(Long id, Product productDetails) {
-        log.info("상품 수정: id={}", id);
-        Optional<Product> productOptional = productRepository.findById(id);
-        if (productOptional.isPresent()) {
-            Product product = productOptional.get();
-            product.setName(productDetails.getName());
-            product.setDescription(productDetails.getDescription());
-            product.setPrice(productDetails.getPrice());
-            product.setOriginalPrice(productDetails.getOriginalPrice());
-            product.setDiscountPercent(productDetails.getDiscountPercent());
-            product.setStock(productDetails.getStock());
-            product.setCategory(productDetails.getCategory());
-            product.setImage(productDetails.getImage());
-            product.setDiscounted(productDetails.isDiscounted());
-            product.setBrand(productDetails.getBrand());
-            return productRepository.save(product);
+    @Transactional
+    public Product updateProduct(Long id, String name, String category, String brand, Integer price, Integer discountPrice, String imageUrl, String description, boolean isDiscounted, Integer discountPercent, Integer stock) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+
+        // 필수 필드 검증
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("상품명은 필수 입력 항목입니다.");
         }
-        return null;
+        if (category == null || category.trim().isEmpty()) {
+            throw new IllegalArgumentException("카테고리는 필수 입력 항목입니다.");
+        }
+        if (brand == null || brand.trim().isEmpty()) {
+            throw new IllegalArgumentException("브랜드는 필수 입력 항목입니다.");
+        }
+        if (price == null || price <= 0) {
+            throw new IllegalArgumentException("가격은 0보다 커야 합니다.");
+        }
+        if (description == null || description.trim().isEmpty()) {
+            throw new IllegalArgumentException("상품 설명은 필수 입력 항목입니다.");
+        }
+        if (stock == null || stock < 0) {
+            throw new IllegalArgumentException("재고는 0 이상이어야 합니다.");
+        }
+
+        product.setName(name);
+        product.setCategory(category);
+        product.setBrand(brand);
+        product.setPrice(price);
+        product.setDiscountPrice(isDiscounted && discountPrice != null ? discountPrice : null);
+        product.setDiscountPercent(isDiscounted ? discountPercent : null);
+        product.setImageUrl(imageUrl != null ? imageUrl : product.getImageUrl());
+        product.setDescription(description);
+        product.setDiscounted(isDiscounted);
+        product.setStock(stock);
+
+        return productRepository.save(product);
     }
 
-    public void deleteProduct(Long id) {
-        log.info("상품 삭제: id={}", id);
-        productRepository.deleteById(id);
+    @Transactional(readOnly = true)
+    public Product getProductById(Long id) {
+        return productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
     }
 
+    @Transactional(readOnly = true)
+    public List<Product> getAllProducts() {
+        return productRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Product> getProductsByCategory(String category) {
+        return productRepository.findByCategory(category);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Product> getProductsByCategoryAndBrand(String category, String brand) {
+        return productRepository.findByCategoryAndBrand(category, brand);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Product> getDiscountedProducts() {
+        return productRepository.findByIsDiscountedTrue();
+    }
+
+    @Transactional(readOnly = true)
     public List<String> getDistinctBrands() {
-        log.info("모든 브랜드 조회");
         return productRepository.findDistinctBrands();
     }
 
-    private void applyDiscounts(List<Product> products) {
-        for (Product product : products) {
-            applyDiscount(product);
-        }
+    @Transactional
+    public void deleteProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        productRepository.delete(product);
     }
 
-    private void applyDiscount(Product product) {
-        if (product.isDiscounted() && product.getOriginalPrice() != null && product.getDiscountPercent() != null) {
-            int discountedPrice = (int) (product.getOriginalPrice() * (1 - product.getDiscountPercent() / 100.0));
-            log.debug("할인 적용: 원래 가격={}, 할인율={}, 적용 가격={}",
-                    product.getOriginalPrice(), product.getDiscountPercent(), discountedPrice);
-            product.setPrice(discountedPrice);
-        }
-    }
+
 }

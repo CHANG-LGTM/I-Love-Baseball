@@ -30,6 +30,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-security' // 🔥 Spring Security 추가
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'software.amazon.awssdk:s3:2.20.0'
+
+	//.env 파일
+	implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+
 	//jjwt
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'

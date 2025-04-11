@@ -320,21 +320,23 @@ export default function MainPage() {
                         {product.name}
                       </Typography>
                       <Box mb={2}>
-                        <Typography color="error" variant="body2">
-                          {product.discountPercent}% 할인
-                        </Typography>
-                        <Typography
-                          color="text.secondary"
-                          variant="body2"
-                          sx={{ textDecoration: "line-through" }}
-                        >
-                          {product.originalPrice.toLocaleString()}원
-                        </Typography>
+                        {(product.originalPrice !== null && product.originalPrice > 0) && (
+                          <>
+                          <Typography color="error" variant="body2">
+                            {product.discountPercent}% 할인
+                          </Typography>
+                          <Typography
+                            color="text.secondary"
+                            variant="body2"
+                            sx={{ textDecoration: "line-through" }}
+                          >
+                            {product.originalPrice.toLocaleString()}원
+                          </Typography>
+                          </>
+                        )}
+                        
                         <Typography variant="h6" color="primary">
-                          {calculateDiscountedPrice(
-                            product.originalPrice,
-                            product.discountPercent
-                          ).toLocaleString()}
+                          {product.price.toLocaleString()}
                           원
                         </Typography>
                       </Box>

@@ -27,6 +27,12 @@ interface ApiErrorResponse {
 
 const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:8092";
 
+// axios 인스턴스 생성
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true, // 인증 정보(JWT 토큰) 포함
+});
+
 const AdminProductForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -59,10 +65,7 @@ const AdminProductForm: React.FC = () => {
 
     if (id) {
       try {
-        const response = await axios.get<Product>(
-          `${API_BASE_URL}/api/admin/products/${id}`,
-          { withCredentials: true }
-        );
+        const response = await apiClient.get<Product>(`/api/admin/products/${id}`);
         const fetchedProduct = response.data;
         setProduct(fetchedProduct);
         setImagePreview(fetchedProduct.image || null);
@@ -70,7 +73,7 @@ const AdminProductForm: React.FC = () => {
       } catch (err) {
         const axiosError = err as AxiosError<ApiErrorResponse>;
         setError(
-          axiosError.response?.data?.message || 
+          axiosError.response?.data?.message ||
           "상품 정보를 불러오는데 실패했습니다."
         );
       }
@@ -147,46 +150,48 @@ const AdminProductForm: React.FC = () => {
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      setError(null);
+
       try {
-        let imageUrl = product.image;
-
-        if (imageFile) {
-          const formData = new FormData();
-          formData.append("file", imageFile);
-          const uploadResponse = await axios.post(
-            `${API_BASE_URL}/api/admin/uploads`,
-            formData,
-            {
-              withCredentials: true,
-              headers: {
-                "Content-Type": "multipart/form-data",
-              },
-            }
-          );
-          imageUrl = uploadResponse.data.url;
+        const formData = new FormData();
+        formData.append("name", product.name);
+        formData.append("description", product.description || "");
+        formData.append("price", product.price.toString());
+        formData.append("stock", product.stock.toString());
+        formData.append("category", product.category);
+        formData.append("brand", product.brand);
+        formData.append("discounted", product.discounted.toString());
+        if (product.discounted) {
+          formData.append("originalPrice", product.originalPrice?.toString() || "0");
+          formData.append("discountPercent", product.discountPercent?.toString() || "0");
         }
-
-        const updatedProduct = { ...product, image: imageUrl };
+        if (imageFile) {
+          formData.append("image", imageFile);
+        }
 
         if (id) {
-          await axios.put(
-            `${API_BASE_URL}/api/admin/products/${id}`,
-            updatedProduct,
-            { withCredentials: true }
-          );
+          // 상품 수정
+          await apiClient.put(`/api/admin/products/${id}`, formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
         } else {
-          await axios.post(
-            `${API_BASE_URL}/api/admin/products`,
-            updatedProduct,
-            { withCredentials: true }
-          );
+          // 상품 생성
+          await apiClient.post("/api/admin/products", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
         }
+
         navigate("/admin/products");
       } catch (err) {
         const axiosError = err as AxiosError<ApiErrorResponse>;
         setError(
-          axiosError.response?.data?.message || 
-          "상품 저장에 실패했습니다."
+          axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
+          (id ? "상품 수정에 실패했습니다." : "상품 등록에 실패했습니다.")
         );
       }
     },
