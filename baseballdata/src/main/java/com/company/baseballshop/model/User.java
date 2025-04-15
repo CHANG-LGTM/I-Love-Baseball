@@ -35,8 +35,10 @@
         @Column(nullable = false)
         private Role role;
 
+        @Column(nullable = true)
         private String provider;
 
+        @Column(nullable = true)
         private String providerId;
 
         @Override

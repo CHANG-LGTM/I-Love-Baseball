@@ -53,6 +53,7 @@ const Register: React.FC = () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/auth/check-email`, {
         params: { email },
+        withCredentials: true, // CORS 요청에서 쿠키/세션 사용을 위해 추가
       });
       if (!response.data.available) {
         setEmailError('이미 사용 중인 이메일입니다.');
@@ -60,7 +61,12 @@ const Register: React.FC = () => {
         setEmailError(null);
       }
     } catch (err) {
-      console.log(err);
+      const axiosError = err as AxiosError;
+      console.error('이메일 중복 확인 오류:', {
+        message: axiosError.message,
+        status: axiosError.response?.status,
+        data: axiosError.response?.data,
+      });
       setEmailError('이메일 확인 중 오류가 발생했습니다.');
     }
   }, 500);
@@ -74,6 +80,7 @@ const Register: React.FC = () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/auth/check-nickname`, {
         params: { nickname },
+        withCredentials: true, // CORS 요청에서 쿠키/세션 사용을 위해 추가
       });
       if (!response.data.available) {
         setNicknameError('이미 사용 중인 닉네임입니다.');
@@ -81,7 +88,12 @@ const Register: React.FC = () => {
         setNicknameError(null);
       }
     } catch (err) {
-      console.log(err);
+      const axiosError = err as AxiosError;
+      console.error('닉네임 중복 확인 오류:', {
+        message: axiosError.message,
+        status: axiosError.response?.status,
+        data: axiosError.response?.data,
+      });
       setNicknameError('닉네임 확인 중 오류가 발생했습니다.');
     }
   }, 500);
@@ -115,7 +127,6 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    // 폼 검증
     if (emailError || nicknameError || passwordError) {
       setError('입력값을 확인해주세요.');
       return;
@@ -132,7 +143,7 @@ const Register: React.FC = () => {
         },
         {
           headers: { "Content-Type": "application/json" },
-          withCredentials: true,
+          withCredentials: true, // CORS 요청에서 쿠키/세션 사용을 위해 추가
         }
       );
 

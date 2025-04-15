@@ -18,7 +18,7 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
         logger.warn("OAuth2 인증 실패: {}");
 
         // ✅ 프론트엔드로 리다이렉트, 에러 세부사항 노출 최소화
-        String redirectUrl = "http://localhost:5173/login?error=authentication_failed";
+        String redirectUrl = "https://baseball.teamace.shop/login?error=authentication_failed";
 
         // 상태 코드를 설정해 프론트엔드에서 추가 처리 가능
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401 Unauthorized

@@ -288,7 +288,7 @@ export default function EditReview() {
             </Typography>
             <Rating
               value={rating}
-              onChange={(event, newValue) => setRating(newValue)}
+              onChange={(_event, newValue) => setRating(newValue)}
               precision={1}
               size="large"
             />
