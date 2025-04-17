@@ -39,6 +39,9 @@ export default function Navbar() {
   const [openDialog, setOpenDialog] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // 환경 변수에서 API URL 가져오기
+  const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "https://localhost:8092";
+
   useEffect(() => {
     setOpenDialog(false);
     setMobileOpen(false);
@@ -62,7 +65,11 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      await axios.post("http://localhost:8092/api/auth/logout", {}, { withCredentials: true });
+      await axios.post(
+        `${API_BASE_URL}/api/auth/logout`,
+        {},
+        { withCredentials: true }
+      );
       console.log("로그아웃 성공");
     } catch (err) {
       console.error("로그아웃 실패:", err);
@@ -91,7 +98,7 @@ export default function Navbar() {
           { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
           { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
           { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
-          { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" }, // 장바구니 추가
+          { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
         ]
       : [
           { text: "마이페이지", icon: <PersonIcon />, path: "/mypage" },
@@ -101,7 +108,7 @@ export default function Navbar() {
           { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
           { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
           { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
-          { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" }, // 장바구니 추가
+          { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
         ]
     : [
         { text: "로그인", icon: null, path: "/login" },
@@ -111,7 +118,7 @@ export default function Navbar() {
         { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
         { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
         { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
-        { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" }, // 장바구니 추가
+        { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
       ];
 
   const drawer = (
@@ -177,7 +184,7 @@ export default function Navbar() {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { lg: "none" } }} // lg (1200px) 이하에서 표시
+            sx={{ mr: 2, display: { lg: "none" } }}
           >
             <MenuIcon />
           </IconButton>
@@ -198,7 +205,7 @@ export default function Navbar() {
 
           <Box
             sx={{
-              display: { xs: "none", lg: "flex" }, // lg (1200px) 이상에서만 표시
+              display: { xs: "none", lg: "flex" },
               alignItems: "center",
               justifyContent: "flex-end",
               gap: 1,
@@ -487,7 +494,7 @@ export default function Navbar() {
           keepMounted: true,
         }}
         sx={{
-          display: { xs: "block", lg: "none" }, // lg (1200px) 이하에서 표시
+          display: { xs: "block", lg: "none" },
           "& .MuiDrawer-paper": { boxSizing: "border-box", width: 240 },
         }}
       >

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { AxiosError } from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Container, TextField, Button, Typography, Card, CardContent, Alert, Box, MenuItem } from '@mui/material';
+import { Container, TextField, Button, Typography, Card, CardContent, Alert, Box } from '@mui/material';
 import { debounce } from 'lodash';
 
 interface RegisterErrorResponse {
@@ -20,7 +20,7 @@ const Register: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [nickname, setNickname] = useState<string>('');
-  const [role, setRole] = useState<string>('USER');
+  const [role] = useState<string>('USER');
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
@@ -203,7 +203,7 @@ const Register: React.FC = () => {
               error={!!nicknameError}
               helperText={nicknameError}
             />
-            <TextField
+            {/* <TextField
               select
               label="역할 선택"
               fullWidth
@@ -212,7 +212,7 @@ const Register: React.FC = () => {
               onChange={(e) => setRole(e.target.value)}
             >
               <MenuItem value="USER">User</MenuItem>
-            </TextField>
+            </TextField> */}
             <Box mt={2}>
               <Button
                 type="submit"

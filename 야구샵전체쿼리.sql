@@ -11,7 +11,6 @@ set foreign_key_checks = 1;
 
 
 
-select * from products;
 
 
 
@@ -88,7 +87,7 @@ CREATE TABLE reviews (
     content TEXT NOT NULL,
     image_url VARCHAR(255), -- imageUrl 필드 추가
     rating INT NOT NULL, -- rating 필드 추가 (1~5)
-    product_id BIGINT NOT NULL,
+    product_id BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_reviews_product_id

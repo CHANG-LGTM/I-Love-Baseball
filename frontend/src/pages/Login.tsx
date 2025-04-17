@@ -41,7 +41,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    try {
+    try { 
       const response = await axios.post(
         `${API_BASE_URL}/api/auth/login`,
         { email: email.trim(), password: password.trim() },
@@ -146,7 +146,7 @@ const Login: React.FC = () => {
               {!nickname && (
                 <>
                   <Box mt={2} display="flex" justifyContent="space-between">
-                    <Button
+                    {/* <Button
                       variant="outlined"
                       color="primary"
                       onClick={() => handleSNSLogin("google")}
@@ -154,7 +154,7 @@ const Login: React.FC = () => {
                       sx={{ mr: 1 }}
                     >
                       Google 로그인
-                    </Button>
+                    </Button> */}
                     <Button
                       variant="outlined"
                       color="warning"
@@ -164,14 +164,14 @@ const Login: React.FC = () => {
                     >
                       Kakao 로그인
                     </Button>
-                    <Button
+                    {/* <Button
                       variant="outlined"
                       color="success"
                       onClick={() => handleSNSLogin("naver")}
                       fullWidth
                     >
                       Naver 로그인
-                    </Button>
+                    </Button> */}
                   </Box>
                   <Typography align="center" mt={2}>
                     계정이 없으신가요?{" "}

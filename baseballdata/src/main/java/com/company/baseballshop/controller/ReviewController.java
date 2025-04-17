@@ -60,7 +60,7 @@ public class ReviewController {
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<Review> createReview(
             @RequestParam("content") String content,
-            @RequestParam("productId") Long productId,
+            @RequestParam(value = "productId", required = false) Long productId,
             @RequestParam("rating") Integer rating,
             @RequestParam(value = "image", required = false) MultipartFile image,
             @AuthenticationPrincipal String customerId) throws IOException {

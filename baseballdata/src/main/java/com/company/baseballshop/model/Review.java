@@ -31,7 +31,7 @@ public class Review {
     private int rating; // 평점 추가 (1~5)
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id", nullable = true)
     @JsonIgnore
     private Product product; // 상품과의 관계 추가
 
