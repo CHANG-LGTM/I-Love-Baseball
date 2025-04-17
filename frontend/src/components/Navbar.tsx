@@ -28,7 +28,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import axios from "axios";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../AdminPage/AuthContext";
 
@@ -40,7 +40,11 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // 환경 변수에서 API URL 가져오기
-  const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL || "https://localhost:8092";
+  const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL;
+
+  if (!API_BASE_URL) {
+    throw new Error("VITE_APP_API_BASE_URL 환경 변수가 정의되지 않았습니다. .env 파일을 확인하세요.");
+  }
 
   useEffect(() => {
     setOpenDialog(false);
@@ -87,39 +91,41 @@ export default function Navbar() {
     setMobileOpen(!mobileOpen);
   };
 
-  const menuItems = nickname
-    ? isAdmin
-      ? [
-          { text: "상품 관리", icon: <InventoryIcon />, path: "/admin/products" },
-          { text: "리뷰 관리", icon: <RateReviewIcon />, path: "/admin/reviews" },
-          { text: "배송 관리", icon: <LocalShippingIcon />, path: "/admin/shipping" },
-          { text: "야구배트", icon: <SportsBaseballIcon />, path: "/bats" },
-          { text: "배팅장갑", icon: <SportsMmaIcon />, path: "/batting-gloves" },
-          { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
-          { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
-          { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
-          { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
-        ]
+  const menuItems = useMemo(() => {
+    return nickname
+      ? isAdmin
+        ? [
+            { text: "상품 관리", icon: <InventoryIcon />, path: "/admin/products" },
+            { text: "리뷰 관리", icon: <RateReviewIcon />, path: "/admin/reviews" },
+            { text: "배송 관리", icon: <LocalShippingIcon />, path: "/admin/shipping" },
+            { text: "야구배트", icon: <SportsBaseballIcon />, path: "/bats" },
+            { text: "배팅장갑", icon: <SportsMmaIcon />, path: "/batting-gloves" },
+            { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
+            { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
+            { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
+            { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
+          ]
+        : [
+            { text: "마이페이지", icon: <PersonIcon />, path: "/mypage" },
+            { text: "구매후기", icon: <RateReviewIcon />, path: "/review-list" },
+            { text: "야구배트", icon: <SportsBaseballIcon />, path: "/bats" },
+            { text: "배팅장갑", icon: <SportsMmaIcon />, path: "/batting-gloves" },
+            { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
+            { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
+            { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
+            { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
+          ]
       : [
-          { text: "마이페이지", icon: <PersonIcon />, path: "/mypage" },
-          { text: "구매후기", icon: <RateReviewIcon />, path: "/review-list" },
+          { text: "로그인", icon: null, path: "/login" },
+          { text: "회원가입", icon: null, path: "/register" },
           { text: "야구배트", icon: <SportsBaseballIcon />, path: "/bats" },
           { text: "배팅장갑", icon: <SportsMmaIcon />, path: "/batting-gloves" },
           { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
           { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
           { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
           { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
-        ]
-    : [
-        { text: "로그인", icon: null, path: "/login" },
-        { text: "회원가입", icon: null, path: "/register" },
-        { text: "야구배트", icon: <SportsBaseballIcon />, path: "/bats" },
-        { text: "배팅장갑", icon: <SportsMmaIcon />, path: "/batting-gloves" },
-        { text: "보호장비", icon: <HealthAndSafetyIcon />, path: "/protection" },
-        { text: "글러브", icon: <SportsHandballIcon />, path: "/gloves" },
-        { text: "야구화", icon: <SportsHandballIcon />, path: "/shoes" },
-        { text: "장바구니", icon: <ShoppingCartIcon />, path: "/cart" },
-      ];
+        ];
+  }, [nickname, isAdmin]);
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: "center" }}>
