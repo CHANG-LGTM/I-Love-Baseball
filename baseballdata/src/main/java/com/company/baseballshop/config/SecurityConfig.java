@@ -43,9 +43,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // 공개 엔드포인트
-                        .requestMatchers("/api/auth/login", "/api/auth/register","/api/auth/check-email", "/api/auth/check-nickname").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register","/api/auth/check-email", "/api/auth/check-nickname","/api/payments/portone").permitAll()
                         .requestMatchers("/login/oauth2/**", "/oauth2/authorize/**", "/favicon.ico").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        
 
 
                         // 상품 조회는 누구나 가능

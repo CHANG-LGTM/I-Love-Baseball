@@ -10,7 +10,20 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-    
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    @Value("${review.upload-dir}")
+    private String reviewUploadDir;
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:" + uploadDir + "/");
+        // 리뷰 이미지 경로
+        registry.addResourceHandler("/review_img/**")
+                .addResourceLocations("file:" + reviewUploadDir + "/");
+    }
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
