@@ -127,7 +127,9 @@
 
 
 - UseCase Diagram  
-![image](https://github.com/user-attachments/assets/29c9c326-a482-48a9-876c-d0f17cf30d85)
+![스크린샷 2025-04-21 오전 1 07 15](https://github.com/user-attachments/assets/aba39f55-f173-4b52-8b1e-401b134be7d7)
+
+
 
 
 
