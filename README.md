@@ -41,7 +41,8 @@
  메인 페이지
 ![image](https://github.com/user-attachments/assets/ce0bcb60-52e0-4f1e-ab7f-6dc1f436e631)
 장바구니 페이지
-![image](https://github.com/user-attachments/assets/6b54925d-5381-4061-b88d-37507685ac87)
+![image](https://github.com/user-attachments/assets/697b6f93-4ff8-477e-bdad-be9eda754c43)
+
 마이 페이지
 ![image](https://github.com/user-attachments/assets/d7da3f0c-938c-43c6-b469-08d168325460)
 리뷰 페이지
