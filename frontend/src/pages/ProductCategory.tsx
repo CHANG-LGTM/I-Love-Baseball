@@ -16,9 +16,9 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
+  Snackbar,
 } from "@mui/material";
-import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
-import FavoriteIcon from "@mui/icons-material/Favorite";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart"; // Replaced Favorite icons
 import axios, { AxiosError } from "axios";
 
 interface Product {
@@ -70,6 +70,7 @@ export default function ProductCategory() {
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [brands, setBrands] = useState<BrandCount[]>([{ brand: "all", count: 0 }]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [snackbarOpen, setSnackbarOpen] = useState(false); // Added for Snackbar
 
   const getImageSrc = useCallback((image: string | undefined): string => {
     if (!image) return "/path/to/fallback-image.jpg";
@@ -119,8 +120,8 @@ export default function ProductCategory() {
     } catch (err) {
       const axiosError = err as AxiosError<ApiErrorResponse>;
       setError(
-        axiosError.response?.data?.message || 
-        axiosError.response?.data?.error || 
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         "상품 목록을 불러오는 데 실패했습니다."
       );
       setBrands([{ brand: "all", count: 0 }]);
@@ -179,8 +180,8 @@ export default function ProductCategory() {
         } catch (err) {
           const axiosError = err as AxiosError<ApiErrorResponse>;
           setError(
-            axiosError.response?.data?.message || 
-            axiosError.response?.data?.error || 
+            axiosError.response?.data?.message ||
+            axiosError.response?.data?.error ||
             "상품 목록을 불러오는 데 실패했습니다."
           );
           setProducts([]);
@@ -212,8 +213,8 @@ export default function ProductCategory() {
       } catch (err) {
         const axiosError = err as AxiosError<ApiErrorResponse>;
         setError(
-          axiosError.response?.data?.message || 
-          axiosError.response?.data?.error || 
+          axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
           "장바구니 데이터를 불러오는 데 실패했습니다"
         );
       }
@@ -227,7 +228,7 @@ export default function ProductCategory() {
       case "priceHigh":
         return sorted.sort((a, b) => b.price - a.price);
       case "priceLow":
-        return sorted.sort((a, b) => a.price - b.price);
+        return sorted.sort((a) => a.price - a.price);
       default:
         return sorted;
     }
@@ -265,6 +266,7 @@ export default function ProductCategory() {
           { productId },
           { withCredentials: true }
         );
+        setSnackbarOpen(true); // Show Snackbar on add to cart
         const res = await axios.get<CartItem[]>(`${API_BASE_URL}/api/cart`, {
           withCredentials: true,
         });
@@ -282,8 +284,8 @@ export default function ProductCategory() {
     } catch (err) {
       const axiosError = err as AxiosError<ApiErrorResponse>;
       alert(
-        axiosError.response?.data?.message || 
-        axiosError.response?.data?.error || 
+        axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
         "장바구니 처리 중 오류가 발생했습니다."
       );
     }
@@ -315,7 +317,7 @@ export default function ProductCategory() {
   };
 
   const calculateDiscountedPrice = (
-    originalPrice?: number | null, 
+    originalPrice?: number | null,
     discountPercent?: number | null
   ): number => {
     if (!originalPrice || !discountPercent) return originalPrice || 0;
@@ -545,21 +547,15 @@ export default function ProductCategory() {
                             >
                               구매하기
                             </Button>
-                            <Box
+                            <Button
+                              variant="outlined"
                               onClick={(e) => toggleCart(product.id, e)}
-                              sx={{
-                                cursor: "pointer",
-                                padding: 0,
-                                "&:focus": { outline: "none" },
-                                "&:hover": { backgroundColor: "transparent" },
-                              }}
+                              sx={{ minWidth: "auto", p: 1 }}
                             >
-                              {cart.includes(product.id) ? (
-                                <FavoriteIcon sx={{ color: "red", fontSize: "34px" }} />
-                              ) : (
-                                <FavoriteBorderIcon sx={{ color: "grey", fontSize: "34px" }} />
-                              )}
-                            </Box>
+                              <ShoppingCartIcon
+                                sx={{ color: cart.includes(product.id) ? "primary.main" : "grey", fontSize: "34px" }}
+                              />
+                            </Button>
                           </Box>
                         </Box>
                       </CardContent>
@@ -587,6 +583,14 @@ export default function ProductCategory() {
           )}
         </>
       )}
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        message="해당 상품이 장바구니에 추가 되었습니다!"
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
     </Container>
   );
 }

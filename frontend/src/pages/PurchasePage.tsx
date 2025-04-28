@@ -46,8 +46,11 @@ interface DaumPostcodeData {
 }
 
 interface PaymentResponse {
-  status: string;
-  paymentKey?: string;
+  transactionType: string;
+  txId: string;
+  paymentId: string;
+  code?: string;
+  message?: string;
 }
 
 interface OrderResponse {
@@ -205,22 +208,25 @@ const PurchasePage: React.FC = () => {
         redirectUrl: `${CLIENT_BASE_URL}/purchase/${orderId}`,
       })) as unknown as PaymentResponse;
 
-      if (paymentResponse.status === "PAID") {
-        await axios.post(
-          `${API_BASE_URL}/api/payments/portone/verify`,
-          null,
-          {
-            params: {
-              paymentKey: paymentResponse.paymentKey,
-              orderId: orderId,
-            },
-            withCredentials: true,
-          }
-        );
-        navigate(`/purchase/${orderId}`);
-      } else {
-        setError("결제가 취소되었거나 실패했습니다.");
+      console.log(paymentResponse);
+
+      if (paymentResponse.code) {
+        throw new Error(paymentResponse.message);
       }
+      
+      // await axios.post(
+      //   `${API_BASE_URL}/api/payments/portone/verify`,
+      //   null,
+      //   {
+      //     params: {
+      //       paymentKey: paymentResponse.paymentId,
+      //       orderId: orderId,
+      //     },
+      //     withCredentials: true,
+      //   }
+      // );
+      navigate(`/purchase/complete`);
+      
     } catch (err) {
       const axiosError = err as AxiosError<ApiErrorResponse>;
       const errorMessage =
