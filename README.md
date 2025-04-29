@@ -163,7 +163,14 @@
 ---
 
 ## 📆 프로젝트 일정
-`<!-- 간단한 일정표 또는 타임라인 넣기 -->`
+프로젝트 일정
+
+![image](https://github.com/user-attachments/assets/7206bdcf-f0e0-4cb9-8980-0e66e594441c)
+
+
+![image](https://github.com/user-attachments/assets/782e0dfa-9949-46f3-ad58-58192195cbcb)
+
+
 
 ---
 
