@@ -47,9 +47,9 @@
 ![image](https://github.com/user-attachments/assets/d7da3f0c-938c-43c6-b469-08d168325460)
 리뷰 페이지
 ![image](https://github.com/user-attachments/assets/d91b6651-1dc9-4140-a9b3-020fad3da769)
-관리자 제품등록 페이지
-![image](https://github.com/user-attachments/assets/80078c82-35f8-40b6-b4d0-76a66b91bd99)
 포트원 연동 결제 페이지
+![image](https://github.com/user-attachments/assets/80078c82-35f8-40b6-b4d0-76a66b91bd99)
+관리자 제품등록 페이지
 ![image](https://github.com/user-attachments/assets/a4bdb4f4-07cd-442a-bab8-9d4dbd1fc127)
 
 
